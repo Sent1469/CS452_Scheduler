@@ -105,7 +105,7 @@ int main()
   return 0;
 }
 
-// Sets a string to lovercase for error checking.
+// Sets a string to lowercase for error checking.
 std::string toLower(std::string str)
 {
   std::transform(str.begin(), str.end(), str.begin(),
