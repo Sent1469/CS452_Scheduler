@@ -3,8 +3,68 @@
 #include <string>
 #include <algorithm>
 #include <fstream>
+#include <sstream>
 
 std::string toLower(std::string str);
+void cleanFile(std::string file);
+
+class Process 
+{
+  private:
+    int pid, burst, arrival, priority, deadline, io;
+  
+  public:
+    void setPID(int pid)
+    {
+      this->pid = pid;
+    }
+    void setBurst(int burst)
+    {
+      this->burst = burst;
+    }
+    void setArrival(int arrival)
+    {
+      this->arrival = arrival;
+    }
+    void setPriority(int priority)
+    {
+      this->priority = priority;
+    }
+    void setDeadline(int deadline)
+    {
+      this->deadline = deadline;
+    }
+    void setIO(int io)
+    {
+      this->io = io;
+    }
+
+    int getPID()
+    {
+      return pid;
+    }
+    int getBurst()
+    {
+      return burst;
+    }
+    int getArrival()
+    {
+      return arrival;
+    }
+    int getPriority()
+    {
+      return priority;
+    }
+    int getDeadline()
+    {
+      return deadline;
+    }
+    int getIO()
+    {
+      return io;
+    }
+
+};
 
 /* First main that contains code for user input */
 // int main()
@@ -127,41 +187,78 @@ std::string toLower(std::string str);
 // Second main that deals with file input.
 int main()
 {
-  int lineArg = 0;
+  int numProcesses = 0; // Set to -1 to account for first line in file.
+  int i;
   std::ifstream input;
+  std::ofstream output;
   std::string line;
+  std::string token;
+  std::stringstream ss;
+  std::string file = "1" // Input file containing processes info.
+  Process arr[10]; // TODO: Change this, was creating for testing
 
-  input.open("10"); // Open file.
-
+  input.open(file);
   if (!input.is_open())
   {
-    std::perror("file");
-    return 1;
+    std::perror("10 opened");
   }
 
-  while (input) // Keep going until we have removed all content in input.
+  output.open("temp"); // Creates temp file.
+  if (!output.is_open())
   {
-    
-    if (lineArg == 5) // If we are at the last argument of the row
-    {
-      std::cout<<"In if block"<<std::endl;
-      
-      std::getline(input, line, '\r'); // Gets an argument with a new line delimeter
-      std::cout<<"line = "<<"'"<<line<<"'"<<std::endl;
-      input.get(); // Removes \n from the file.
-      
-      lineArg = 0; // Back at the start of the row, so reset.
-    }
-    else
-    {
-      std::getline(input, line, '\t'); // Gets an argument with a tab delimiter
-
-      std::cout<<"line = "<<"'"<<line<<"'"<<std::endl;
-      lineArg++;
-    }
+    std::perror("temp created");
   }
 
-  input.close(); // Closing file.
+  // Accounts for the first line. FENCEPOST
+  std::getline(input, line, '\r'); // On Windows, new line char is \r
+  input.get(); // Grabs the extra \t character at the end of the line.
+
+  while (input) // Keep going until we have read all content in input.
+  {
+    std::getline(input, line, '\r'); // On Windows, new line char is \r
+    input.get(); // Grabs the extra \t character at the end of the line.
+
+    if (line.find('-') == std::string::npos) // If we do not find a negative char.
+    {
+      Process p;
+      ss.str(line); // Puts line in stringstream
+      for (i = 0; i < 6; i++) // 6 is max num of tokens
+      {
+        if (ss >> token) // Stringstream through the tokens of line.
+        {
+          if (i == 0)
+            p.setPID(stoi(token));
+          else if (i == 1)
+            p.setBurst(stoi(token));
+          else if (i == 2)
+            p.setArrival(stoi(token));
+          else if (i == 3)
+            p.setPriority(stoi(token));
+          else if (i == 4)
+            p.setDeadline(stoi(token));
+          else
+            p.setIO(stoi(token));
+        }
+      }
+      ss.clear(); // After using the stream, clear to take more input.
+      output<<line<<std::endl; // Puts line in temp.
+      numProcesses++; // Counts the number of processes.
+
+      // TODO: Remove error checker below
+      std::cout<<p.getPID()<<" "<<p.getBurst()<<" "<<p.getArrival()<<" "
+      <<p.getPriority()<<" "<<p.getDeadline()<<" "<<p.getIO()<<std::endl;
+    }
+  }
+  // TODO: Remove, used for error checking
+  std::cout<<"numProcesses = "<<numProcesses<<std::endl;
+  input.close(); // Closing input file.
+  output.close(); // Close temp.
+
+  cleanFile(file);
+
+  // Create array here
+
+  // Set values of class to each index of the array
 
   return 0;
 }
@@ -173,4 +270,31 @@ std::string toLower(std::string str)
     [](unsigned char c){ return std::tolower(c); });
 
   return str;
+}
+
+void cleanFile(std::string file)
+{
+  input.open("temp");
+  if (!input.is_open())
+  {
+    std::perror("temp open for reading");
+  }
+
+  output.open(file);
+  if (!output.is_open())
+  {
+    std::perror("10 is open for the second time");
+  }
+
+  while (input) // Keep going until we have read all content in input.
+  {
+    std::getline(input, line, '\n'); // Now file is created on linux hardware, so \n, not \r
+    std::cerr<<line<<std::endl; // TODO: Remove, used for error testing.
+    output<<line<<std::endl; // Puts line in output (input file).
+  }
+
+  input.close(); // Close temp.
+  output.close(); // Close input file.
+
+  remove("temp"); // Remove the data transfering.
 }
