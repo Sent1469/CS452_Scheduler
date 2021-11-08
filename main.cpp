@@ -4,6 +4,9 @@
 #include <algorithm>
 #include <fstream>
 #include <sstream>
+#include <vector>
+#include <cstdio>
+#include <chrono>
 
 std::string toLower(std::string str);
 void cleanFile(std::string file);
@@ -191,27 +194,38 @@ int main()
   int i;
   std::ifstream input;
   std::ofstream output;
-  std::string line;
-  std::string token;
   std::stringstream ss;
-  std::string file = "10"; // Input file containing processes info.
-  Process arr[10]; // TODO: Change this, was creating for testing
+  std::string line, token;
+  std::string file = "500k"; // Input file containing processes info.
+  //Process arr; // TODO: Change this, was creating for testing
+  std::vector<Process> pList;
+
+  using std::chrono::high_resolution_clock;
+  using std::chrono::duration_cast;
+  using std::chrono::duration;
+  using std::chrono::milliseconds;
+
+  auto t1 = high_resolution_clock::now();
 
   input.open(file);
   if (!input.is_open())
   {
-    std::perror("10 opened");
+    std::perror("file");
+    return 1;
   }
 
-  output.open("temp"); // Creates temp file.
+  output.open("t"); // Creates temp file.
   if (!output.is_open())
   {
-    std::perror("temp created");
+    std::perror("t");
+    return 1;
   }
+
+  std::cout<<"before first while"<<std::endl;
 
   while (input) // Keep going until we have read all content in input.
   {
-    std::getline(input, line, '\r'); // On Windows, new line char is \r
+    std::getline(input, line, '\n'); // On Windows, new line char is \r
     input.get(); // Grabs the extra \t character at the end of the line.
 
     // If we do not find a negative char and are not first line in file.
@@ -219,43 +233,75 @@ int main()
     {
       Process p;
       ss.str(line); // Puts line in stringstream
-      for (i = 0; i < 6; i++) // 6 is max num of tokens
-      {
-        if (ss >> token) // Stringstream through the tokens of line.
-        {
-          if (i == 0)
-            p.setPID(stoi(token));
-          else if (i == 1)
-            p.setBurst(stoi(token));
-          else if (i == 2)
-            p.setArrival(stoi(token));
-          else if (i == 3)
-            p.setPriority(stoi(token));
-          else if (i == 4)
-            p.setDeadline(stoi(token));
-          else
-            p.setIO(stoi(token));
-        }
-      }
+      ss>>token;
+      p.setPID(stoi(token));
+      ss>>token;
+      p.setBurst(stoi(token));
+      ss>>token;
+      p.setArrival(stoi(token));
+      ss>>token;
+      p.setPriority(stoi(token));
+      ss>>token;
+      p.setDeadline(stoi(token));
+      ss>>token;
+      p.setIO(stoi(token));
+      // for (i = 0; i < 6; i++) // 6 is max num of tokens
+      // {
+      //   if (ss >> token) // Stringstream through the tokens of line.
+      //   {
+      //     if (i == 0)
+      //       p.setPID(stoi(token));
+      //     else if (i == 1)
+      //       p.setBurst(stoi(token));
+      //     else if (i == 2)
+      //       p.setArrival(stoi(token));
+      //     else if (i == 3)
+      //       p.setPriority(stoi(token));
+      //     else if (i == 4)
+      //       p.setDeadline(stoi(token));
+      //     else
+      //       p.setIO(stoi(token));
+      //   }
+      // }
       ss.clear(); // After using the stream, clear to take more input.
       output<<line<<std::endl; // Puts line in temp.
       numProcesses++; // Counts the number of processes.
-
       // TODO: Remove error checker below
-      std::cout<<p.getPID()<<" "<<p.getBurst()<<" "<<p.getArrival()<<" "
-      <<p.getPriority()<<" "<<p.getDeadline()<<" "<<p.getIO()<<std::endl;
+      // std::cout<<p.getPID()<<" "<<p.getBurst()<<" "<<p.getArrival()<<" "
+      // <<p.getPriority()<<" "<<p.getDeadline()<<" "<<p.getIO()<<std::endl;
+      pList.push_back(p);
     }
+    //std::cout<<"at bottom of while"<<std::endl;
   }
   // TODO: Remove, used for error checking
   std::cout<<"numProcesses = "<<numProcesses<<std::endl;
   input.close(); // Closing input file.
+  std::cout<<"does this take forever #1\n";
   output.close(); // Close temp.
+  std::cout<<"does this take forever #1.1\n";
 
-  cleanFile(file);
+  std::rename("t", "500kc");
+  std::cout<<"does this take forever #2\n";
+  remove("t"); // Remove the data transfering.
+  std::cout<<"does this take forever #3\n";
 
-  // Create array here
+  // for (i = 0; i < pList.size(); i++)
+  // {
+  //   std::cout<<pList.at(i).getPID()<<std::endl;
+  // }
 
-  // Set values of class to each index of the array
+  pList.clear(); // Clear the vector to free memory allocated.
+  std::cout<<"does this take forever #4\n";
+
+  auto t2 = high_resolution_clock::now();
+  /* Getting number of milliseconds as an integer. */
+  auto ms_int = duration_cast<milliseconds>(t2 - t1);
+
+  /* Getting number of milliseconds as a double. */
+  duration<double, std::milli> ms_double = t2 - t1;
+
+  std::cout << ms_int.count() << "ms\n";
+  std::cout << ms_double.count() << "ms";
 
   return 0;
 }
@@ -267,35 +313,4 @@ std::string toLower(std::string str)
     [](unsigned char c){ return std::tolower(c); });
 
   return str;
-}
-
-void cleanFile(std::string file)
-{
-  std::ifstream input;
-  std::ofstream output;
-  std::string line;
-
-  input.open("temp");
-  if (!input.is_open())
-  {
-    std::perror("temp open for reading");
-  }
-
-  output.open(file);
-  if (!output.is_open())
-  {
-    std::perror("10 is open for the second time");
-  }
-
-  while (input) // Keep going until we have read all content in input.
-  {
-    std::getline(input, line, '\n'); // Now file is created on linux hardware, so \n, not \r
-    std::cerr<<line<<std::endl; // TODO: Remove, used for error testing.
-    output<<line<<std::endl; // Puts line in output (input file).
-  }
-
-  input.close(); // Close temp.
-  output.close(); // Close input file.
-
-  remove("temp"); // Remove the data transfering.
 }
