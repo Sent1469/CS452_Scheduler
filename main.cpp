@@ -164,7 +164,7 @@ class Process
 
 //     while (stoi(ioTickValue) > 0)
 //     {
-
+      
 //     }
 //     isIO = !isIO;
 //   }
@@ -187,14 +187,14 @@ class Process
 // Second main that deals with file input.
 int main()
 {
-  int numProcesses = 0; // Set to -1 to account for first line in file.
+  int numProcesses = 0;
   int i;
   std::ifstream input;
   std::ofstream output;
   std::string line;
   std::string token;
   std::stringstream ss;
-  std::string file = "1" // Input file containing processes info.
+  std::string file = "10"; // Input file containing processes info.
   Process arr[10]; // TODO: Change this, was creating for testing
 
   input.open(file);
@@ -209,16 +209,13 @@ int main()
     std::perror("temp created");
   }
 
-  // Accounts for the first line. FENCEPOST
-  std::getline(input, line, '\r'); // On Windows, new line char is \r
-  input.get(); // Grabs the extra \t character at the end of the line.
-
   while (input) // Keep going until we have read all content in input.
   {
     std::getline(input, line, '\r'); // On Windows, new line char is \r
     input.get(); // Grabs the extra \t character at the end of the line.
 
-    if (line.find('-') == std::string::npos) // If we do not find a negative char.
+    // If we do not find a negative char and are not first line in file.
+    if (line.find('-') == std::string::npos && line[0] != 'P')
     {
       Process p;
       ss.str(line); // Puts line in stringstream
@@ -274,6 +271,10 @@ std::string toLower(std::string str)
 
 void cleanFile(std::string file)
 {
+  std::ifstream input;
+  std::ofstream output;
+  std::string line;
+
   input.open("temp");
   if (!input.is_open())
   {
