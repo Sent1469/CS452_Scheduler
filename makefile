@@ -1,8 +1,8 @@
 a: main.o
-	gcc main.o -o a
+	g++ main.o -o a
 
-main.o: main.cpp
-	gcc -c main.cpp
+o: main.cpp
+	g++ -c main.cpp
 
 clean:
 	rm main *.o
