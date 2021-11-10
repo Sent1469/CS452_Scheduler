@@ -68,35 +68,27 @@ class Process
 std::string toLower(std::string str);
 void MergeSort(std::vector<Process>& v, int s, int e);
 void MergeSortedIntervals(std::vector<Process>& v, int s, int m, int e);
-void RealTimeScheduler(std::vector<Process> v);
+void softRealTime(std::vector<Process> v);
 bool func(Process p1, Process p2);
 std::string userInput(int *nQs, int *ageTks, bool *isIO, bool *isInteractive, int *ioTks);
 std::vector<Process> readFile(std::string file);
+void createProcesses(std::vector<Process>& pList);
 //std::vector<Process> createProcesses();
 
 int main()
 { 
-  int nQs = 0;
-  int ageTks = 0;
-  int ioTks = 0;
+  int numQueues = 0;
+  int ageTicks = 0;
+  int ioTicks = 0;
   bool isInteractive = false;
   bool isIO = false;
   std::vector<Process> pList;
+  std::string scheduler;
   // COMMENT OUT LINES 84-96 IF ONLY NEEDING TO TEST FILE
-  std::string scheduler = userInput(&nQs, &ageTks, &isInteractive, &isIO, &ioTks);
+  scheduler = userInput(&numQueues, &ageTicks, &isInteractive, &isIO, &ioTicks);
 
-  std::cout<<nQs<<std::endl<<ageTks<<std::endl<<ioTks<<std::endl
+  std::cout<<numQueues<<std::endl<<ageTicks<<std::endl<<ioTicks<<std::endl
     <<isInteractive<<std::endl<<isIO<<std::endl;
-
-  if (scheduler == "mfqs") //MFQS
-  {
-    std::cout<<"in mfqs\n";
-  }
-  else // RTS
-  {
-    RealTimeScheduler(pList);
-    std::cout<<"in rts: "<<scheduler<<std::endl;
-  }
 
   if (!isInteractive) // If not interactive, must read from file.
   {
@@ -118,16 +110,24 @@ int main()
     // Reads the file and creates Process vector.
     pList = readFile(file);
   }
-  // else
-  //   pList = createProcesses();
-
-  // QUEUES HERE.
+  else
+    createProcesses(pList);
 
   MergeSort(pList, 0, pList.size() - 1);
 
-  for (int i = 0; i < 101; i++)
+  // for (int i = 0; i < pList.size(); i++)
+  // {
+  //   std::cout<<pList.at(i).getArrival()<<std::endl;
+  // }
+
+  if (scheduler == "mfqs") //MFQS
   {
-    std::cout<<pList.at(i).getArrival()<<std::endl;
+    std::cout<<"in mfqs\n";
+  }
+  else // RTS
+  {
+    std::cout<<"in rts: "<<scheduler<<std::endl;
+    softRealTime(pList);
   }
 
   if (!pList.empty()) // If the vector is empty, no reason to clear it.
@@ -138,7 +138,7 @@ int main()
   return 0;
 }
 
-// Sets a string to lowercase for error checking.
+/* Sets a string to lowercase for error checking */
 std::string toLower(std::string str)
 {
   std::transform(str.begin(), str.end(), str.begin(),
@@ -152,9 +152,10 @@ bool func(Process p1, Process p2)
   return p1.getPID() < p2.getPID();
 }
 
-std::string userInput(int *nQs, int *ageTks, bool *isInteractive, bool *isIO, int *ioTks)
+/* Asks for user input on certain variables for each scheduler */
+std::string userInput(int *numQueues, int *ageTicks, bool *isInteractive, bool *isIO, int *ioTicks)
 {
-  std::string scheduler, numQueues, ageTicks, interactive, io, ioTicks;
+  std::string scheduler, interactive, io;
   // Start user input
   std::cout<<"MFQS or RTS? ";
   std::cin>>scheduler;
@@ -171,15 +172,15 @@ std::string userInput(int *nQs, int *ageTks, bool *isInteractive, bool *isIO, in
   if (scheduler == "mfqs") // MFQS specific questions
   {
     std::cout<<"How many queues? ";
-    std::cin>>numQueues;
+    std::cin>>*numQueues;
     // Based on assignment need 2-5 queues.
-    while (stoi(numQueues) < 2 || stoi(numQueues) > 5) // Go until correct user input. 
+    while (*numQueues < 2 || *numQueues > 5) // Go until correct user input. 
     {
-      if (stoi(numQueues) < 2)
+      if (*numQueues < 2)
       {
         std::cout<<"To few queues, number of queues needs to be > 2\nHow many queues? ";
       }
-      else if (stoi(numQueues) > 5)
+      else if (*numQueues > 5)
       {
         std::cout<<"To many queues, number of queues needs to be < 5\nHow many queues? ";
       }
@@ -187,20 +188,18 @@ std::string userInput(int *nQs, int *ageTks, bool *isInteractive, bool *isIO, in
       {
         std::cout<<"Incorrect input.\nHow many queues? ";
       }
-      std::cin>>numQueues;
+      std::cin>>*numQueues;
     }
-    *nQs = stoi(numQueues);
 
     std::cout<<"How many clock ticks for aging? ";
-    std::cin>>ageTicks;
+    std::cin>>*ageTicks;
     // Number of clock ticks for the process to move up a queue.
-    while (stoi(ageTicks) < 1) // Go until correct user input.
+    while (*ageTicks < 1) // Go until correct user input.
     {
       std::cout<<"Value for aging must be an integer greater than 0\n"
       <<"How many clock ticks for aging? ";
-      std::cin>>ageTicks;
+      std::cin>>*ageTicks;
     }
-    *ageTks = stoi(ageTicks);
   }
   else // RTS
   {
@@ -215,9 +214,46 @@ std::string userInput(int *nQs, int *ageTks, bool *isInteractive, bool *isIO, in
       scheduler = toLower(scheduler);
     }
   }
+
+  std::cout<<"Would you like to create processes manually (y/n)? ";
+  std::cin>>interactive;
+
+  while (interactive != "y" && interactive != "n")
+  {
+    std::cout<<"Incorrect input, please enter y or n.\nWould you like to create processes manually (y/n)? ";
+    std::cin>>interactive;
+  }
+
+  if (interactive == "y")
+    *isInteractive = !*isInteractive;
+
+  std::cout<<"Is there I/O (y/n)? ";
+  std::cin>>io;
+
+  while (io != "y" && io != "n")
+  {
+    std::cout<<"Incorrect input, please enter y or n.\nIs there I/O (y/n)? ";
+    std::cin>>io;
+  }
+
+  if (io == "y")
+  {
+    *isIO = !*isIO;
+
+    std::cout<<"What clock tick does I/O occur? ";
+    std::cin>>*ioTicks;
+
+    while (*ioTicks < 0)
+    {
+      std::cout<<"Value for I/O clock tick must be greater than 0.\nWhat clock tick does I/O occur? ";
+      std::cin>>*ioTicks;
+    }
+  }
+
   return scheduler;
 }
 
+/* */
 std::vector<Process> readFile(std::string file)
 {
   int numProcesses = 0;
@@ -251,12 +287,9 @@ std::vector<Process> readFile(std::string file)
     exit(1);
   }
 
-  std::cout<<"before first while"<<std::endl;
-
   std::getline(input, line, '\n'); // On Windows, new line char is \r
   //input.get();
 
-  std::cout<<"'"<<line<<"'"<<std::endl;
   output<<line<<std::endl;
 
   while (input) // Keep going until we have read all content in input.
@@ -292,7 +325,6 @@ std::vector<Process> readFile(std::string file)
       // <<p.getPriority()<<" "<<p.getDeadline()<<" "<<p.getIO()<<std::endl;
       pList.push_back(p);
     }
-    //std::cout<<"at bottom of while"<<std::endl;
   }
   // TODO: Remove, used for error checking
   std::cout<<"numProcesses = "<<numProcesses<<std::endl;
@@ -315,53 +347,148 @@ std::vector<Process> readFile(std::string file)
   return pList;
 }
 
+void createProcesses(std::vector<Process>& pList)
+{
+  int numProcesses, i, burst, arrival, priority, deadline, io;
+  int totalProcesses = 0; // Guarenteed to be 1 process.
+  int pid = 1;
+  std::string moreProcesses = "y"; // FENCEPOST
+
+  while (moreProcesses == "y") // Keep going until user no longer wants to create processes.
+  {
+    std::cout<<"How many processes would you like to create? ";
+    std::cin>>numProcesses;
+
+    while (numProcesses <= 0)
+    {
+      std::cout<<"Number of processes must be greater than 0.\nHow many processes would you like to create? ";
+      std::cin>>numProcesses;
+    }
+
+    for (i = 0; i < numProcesses; i++)
+    {
+      Process p;
+      totalProcesses++;
+      p.setPID(totalProcesses);
+
+      std::cout<<"Process "<<totalProcesses<<"\'s burst time? ";
+      std::cin>>burst;
+
+      while (burst <= 0)
+      {
+        std::cout<<"Burst time must be greater than 0.\nProcess "<<totalProcesses<<"\'s burst time? ";
+        std::cin>>burst;
+      }
+      p.setBurst(burst);
+
+      std::cout<<"Process "<<totalProcesses<<"\'s arrival time? ";
+      std::cin>>arrival;
+
+      while (arrival < 0)
+      {
+        std::cout<<"Arrival time must be nonnegative.\nProcess "<<totalProcesses<<"\'s arrival time? ";
+        std::cin>>arrival;
+      }
+      p.setArrival(arrival);
+
+      std::cout<<"Process "<<totalProcesses<<"\'s priority? ";
+      std::cin>>priority;
+      
+      while (priority < 0)
+      {
+        std::cout<<"Process priority must be nonnegatve.\nProcess "<<totalProcesses<<"\'s priority? ";
+        std::cin>>priority;
+      }
+      p.setPriority(priority);
+
+      std::cout<<"Process "<<totalProcesses<<"\'s deadline? ";
+      std::cin>>deadline;
+
+      while (deadline <= 0)
+      {
+        std::cout<<"Deadline must be a number greater than 0.\nProcess "<<totalProcesses<<"\'s deadline? ";
+        std::cin>>deadline;
+      }
+      p.setDeadline(deadline);
+
+      std::cout<<"Process "<<totalProcesses<<"\'s I/O? ";
+      std::cin>>io;
+
+      while (io < 0)
+      {
+        std::cout<<"Process I/O must be nonnegatve.\nProcess "<<totalProcesses<<"\'s I/O? ";
+        std::cin>>io;
+      }
+      p.setIO(io);
+      std::cout<<std::endl;
+    }
+
+    std::cout<<"Would you like to create more processes (y/n)? ";
+    std::cin>>moreProcesses;
+
+    while (moreProcesses != "y" && moreProcesses != "n")
+    {
+      std::cout<<"Incorrect input.\nWould you like to create more processes (y/n)? ";
+      std::cin>>moreProcesses;
+    }
+  }
+  
+}
+
 // The interval from [s to m] and [m+1 to e] in v are sorted
 // The function will merge both of these intervals
 // Such the interval from [s to e] in v becomes sorted
-void MergeSortedIntervals(std::vector<Process>& v, int s, int m, int e) {
+void MergeSortedIntervals(std::vector<Process>& v, int s, int m, int e) 
+{
+  // Temp is used to temporary store the vector obtained by merging
+  // Elements from [s to m] and [m+1 to e] in v
+  std::vector<Process> temp;
 
-    // Temp is used to temporary store the vector obtained by merging
-    // Elements from [s to m] and [m+1 to e] in v
-    std::vector<Process> temp;
+  int i, j;
+  i = s;
+  j = m + 1;
 
-    int i, j;
-    i = s;
-    j = m + 1;
-
-    while (i <= m && j <= e) {
-        if (v[i].getArrival() <= v[j].getArrival()) {
-            temp.push_back(v[i]);
-            ++i;
-        }
-        else {
-            temp.push_back(v[j]);
-            ++j;
-        }
+  while (i <= m && j <= e) {
+    if (v[i].getArrival() <= v[j].getArrival()) 
+    {
+      temp.push_back(v[i]);
+      ++i;
     }
-    while (i <= m) {
-        temp.push_back(v[i]);
-           ++i;
+    else 
+    {
+      temp.push_back(v[j]);
+      ++j;
     }
-    while (j <= e) {
-        temp.push_back(v[j]);
-        ++j;
-    }
-    for (int i = s; i <= e; ++i)
-        v[i] = temp[i - s];
+  }
+  while (i <= m) 
+  {
+    temp.push_back(v[i]);
+        ++i;
+  }
+  while (j <= e) 
+  {
+    temp.push_back(v[j]);
+    ++j;
+  }
+  for (int i = s; i <= e; ++i)
+    v[i] = temp[i - s];
 }
 
 // The MergeSort function
 // Sorts the array in the range [s to e] in v using
 // Merge sort algorithm
-void MergeSort(std::vector<Process>& v, int s, int e) {
-    if (s < e) {
-        int m = (s + e) / 2;
-        MergeSort(v, s, m);
-        MergeSort(v, m + 1, e);
-        MergeSortedIntervals(v, s, m, e);
-    }
+void MergeSort(std::vector<Process>& v, int s, int e) 
+{
+  if (s < e) {
+    int m = (s + e) / 2;
+    MergeSort(v, s, m);
+    MergeSort(v, m + 1, e);
+    MergeSortedIntervals(v, s, m, e);
+  }
 }
 
-void RealTimeScheduler(std::vector<Process> v) {
-    // Start scheduling process here
+void softRealTime(std::vector<Process> v) 
+{
+  // Start scheduling process here
+
 }
