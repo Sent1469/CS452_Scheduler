@@ -68,7 +68,7 @@ class Process
 std::string toLower(std::string str);
 void MergeSort(std::vector<Process>& v, int s, int e);
 void MergeSortedIntervals(std::vector<Process>& v, int s, int m, int e);
-void softRealTime(std::vector<Process> v);
+void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 bool func(Process p1, Process p2);
 std::string userInput(int *nQs, int *ageTks, bool *isIO, bool *isInteractive, int *ioTks);
 std::vector<Process> readFile(std::string file);
@@ -84,7 +84,7 @@ int main()
   bool isIO = false;
   std::vector<Process> pList;
   std::string scheduler;
-  // COMMENT OUT LINES 84-96 IF ONLY NEEDING TO TEST FILE
+
   scheduler = userInput(&numQueues, &ageTicks, &isInteractive, &isIO, &ioTicks);
 
   std::cout<<numQueues<<std::endl<<ageTicks<<std::endl<<ioTicks<<std::endl
@@ -114,20 +114,24 @@ int main()
     createProcesses(pList);
 
   MergeSort(pList, 0, pList.size() - 1);
+  std::cout<<"Pid"<<"\t"<<"Bst"<<"\t"<<"Arr"<<"\t"<<"Pri"<<"\t"<<"Dline"<<"\t"<<"I/O\n";
+  for (int i = 0; i < pList.size(); i++)
+  {
+    std::cout<<pList.at(i).getPID()<<"\t"<<pList.at(i).getBurst()<<"\t"<<pList.at(i).getArrival()
+    <<"\t"<<pList.at(i).getPriority()<<"\t"<<pList.at(i).getDeadline()<<"\t"<<pList.at(i).getIO()<<std::endl;
+  }
 
-  // for (int i = 0; i < pList.size(); i++)
-  // {
-  //   std::cout<<pList.at(i).getArrival()<<std::endl;
-  // }
-
-  if (scheduler == "mfqs") //MFQS
+  if (scheduler == "mfqs") // MFQS
   {
     std::cout<<"in mfqs\n";
   }
   else // RTS
   {
     std::cout<<"in rts: "<<scheduler<<std::endl;
-    softRealTime(pList);
+    if (scheduler == "s")
+      softRealTime(pList, isIO, ioTicks);
+    else
+      std::cout<<"put rts hard here\n";
   }
 
   if (!pList.empty()) // If the vector is empty, no reason to clear it.
@@ -145,11 +149,6 @@ std::string toLower(std::string str)
     [](unsigned char c){ return std::tolower(c); });
 
   return str;
-}
-
-bool func(Process p1, Process p2)
-{
-  return p1.getPID() < p2.getPID();
 }
 
 /* Asks for user input on certain variables for each scheduler */
@@ -262,8 +261,6 @@ std::vector<Process> readFile(std::string file)
   std::ofstream output;
   std::stringstream ss;
   std::string line, token;
-  //file = "500k"; // Input file containing processes info.
-  //Process arr; // TODO: Change this, was creating for testing
   std::vector<Process> pList;
 
   using std::chrono::high_resolution_clock;
@@ -420,6 +417,7 @@ void createProcesses(std::vector<Process>& pList)
         std::cin>>io;
       }
       p.setIO(io);
+      pList.push_back(p);
       std::cout<<std::endl;
     }
 
@@ -431,63 +429,61 @@ void createProcesses(std::vector<Process>& pList)
       std::cout<<"Incorrect input.\nWould you like to create more processes (y/n)? ";
       std::cin>>moreProcesses;
     }
-  }
-  
+  } 
 }
 
 // The interval from [s to m] and [m+1 to e] in v are sorted
 // The function will merge both of these intervals
 // Such the interval from [s to e] in v becomes sorted
-void MergeSortedIntervals(std::vector<Process>& v, int s, int m, int e) 
+void MergeSortedIntervals(std::vector<Process>& pList, int s, int m, int e) 
 {
   // Temp is used to temporary store the vector obtained by merging
   // Elements from [s to m] and [m+1 to e] in v
   std::vector<Process> temp;
-
   int i, j;
   i = s;
   j = m + 1;
 
   while (i <= m && j <= e) {
-    if (v[i].getArrival() <= v[j].getArrival()) 
+    if (pList[i].getArrival() <= pList[j].getArrival()) 
     {
-      temp.push_back(v[i]);
+      temp.push_back(pList[i]);
       ++i;
     }
     else 
     {
-      temp.push_back(v[j]);
+      temp.push_back(pList[j]);
       ++j;
     }
   }
   while (i <= m) 
   {
-    temp.push_back(v[i]);
+    temp.push_back(pList[i]);
         ++i;
   }
   while (j <= e) 
   {
-    temp.push_back(v[j]);
+    temp.push_back(pList[j]);
     ++j;
   }
   for (int i = s; i <= e; ++i)
-    v[i] = temp[i - s];
+    pList[i] = temp[i - s];
 }
 
 // The MergeSort function
 // Sorts the array in the range [s to e] in v using
 // Merge sort algorithm
-void MergeSort(std::vector<Process>& v, int s, int e) 
+void MergeSort(std::vector<Process>& pList, int s, int e) 
 {
   if (s < e) {
     int m = (s + e) / 2;
-    MergeSort(v, s, m);
-    MergeSort(v, m + 1, e);
-    MergeSortedIntervals(v, s, m, e);
+    MergeSort(pList, s, m);
+    MergeSort(pList, m + 1, e);
+    MergeSortedIntervals(pList, s, m, e);
   }
 }
 
-void softRealTime(std::vector<Process> v) 
+void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
 {
   // Start scheduling process here
 
