@@ -7,6 +7,7 @@
 #include <vector>
 #include <cstdio>
 #include <chrono>
+#include <queue>
 
 class Process 
 {
@@ -431,6 +432,68 @@ void createProcesses(std::vector<Process>& pList)
       std::cin>>moreProcesses;
     }
   } 
+}
+
+void MultilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues, int timeQuantum) {
+    int burst;
+
+    // Create RR Queues needed
+    std::vector<Process> lowerQueue1;
+    std::vector<Process> lowerQueue2;
+    std::vector<Process> lowerQueue3;
+
+    // Create FCFS Queue
+    std::queue<Process> finalQueue;
+
+    // Schedule the processes
+    switch (numQueues) {
+    case 2:
+        finalDemote(lowerQueue1, finalQueue, timeQuantum);
+        break;
+    case 3:
+        demoteQueue(pList, lowerQueue1, timeQuantum);
+        finalDemote(lowerQueue1, finalQueue, (timeQuantum*2));
+        break;
+    case 4:
+        demoteQueue(pList, lowerQueue1, timeQuantum);
+        demoteQueue(lowerQueue1, lowerQueue2, (timeQuantum * 2));
+        finalDemote(lowerQueue2, finalQueue, (timeQuantum * 2));
+        break;
+    case 5:
+        demoteQueue(pList, lowerQueue1, timeQuantum);
+        demoteQueue(lowerQueue1, lowerQueue2, (timeQuantum * 2));
+        demoteQueue(lowerQueue2, lowerQueue3, (timeQuantum * 2));
+        finalDemote(lowerQueue3, finalQueue, (timeQuantum * 2));
+        break;
+    }
+}
+
+// Used for subtracting burst times and demoting processes to a lower queue
+void demoteQueue(std::vector<Process>& topQueue, std::vector<Process>& lowerQueue, int timeQuantum) {
+    for (int j = 0; j < topQueue.size() - 1; j++) {
+        burst = topQueue[j].getBurst() - timeQuantum;
+        topQueue[j].setBurst(burst);
+        if (topQueue[j].getBurst() <= 0) {
+            topQueue.erase(j);
+        }
+        else {
+            lowerQueue.push_back(pList[j]);
+        }
+    }
+}
+
+// Used for final burst time check and demoting the processes into the FCFS queue
+void finalDemote(std::vector<Process>& topQueue, std::queue<Process>& lowerQueue, int timeQuantum) {
+    for (int j = 0; j < topQueue.size() - 1; j++) {
+        burst = topQueue[j].getBurst() - timeQuantum;
+        topQueue[j].setBurst(burst);
+        if (topQueue[j].getBurst() <= 0) {
+            topQueue.erase(j);
+        }
+        else {
+            lowerQueue.push(pList[j]);
+        }
+    }
 }
 
 void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
