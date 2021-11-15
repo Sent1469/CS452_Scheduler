@@ -69,11 +69,16 @@ class Process
     {
       burst--;
     }
+
+    void subtractIO()
+    {
+      io--;
+    }
 };
 
 std::string toLower(std::string str);
-void MergeSort(std::vector<Process>& v, int s, int e);
-void MergeSortedIntervals(std::vector<Process>& v, int s, int m, int e);
+void mergeSort(std::vector<Process>& v, int s, int e);
+void mergeSortedIntervals(std::vector<Process>& v, int s, int m, int e);
 std::string userInput(int *nQs, int *ageTks, bool *isIO, bool *isInteractive, int *ioTks);
 std::vector<Process> readFile(std::string file);
 void createSortedFile(std::vector<Process>& pList);
@@ -81,6 +86,7 @@ void createProcesses(std::vector<Process>& pList);
 void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void printVector(std::vector<Process>& pList);
+void freeVector(std::vector<Process>& v);
 
 int main()
 { 
@@ -126,17 +132,12 @@ int main()
   }
   else // RTS
   {
-    MergeSort(pList, 0, pList.size() - 1); // Merge sort based on arrival time.
+    mergeSort(pList, 0, pList.size() - 1); // Merge sort based on arrival time.
     std::cout<<"in rts: "<<scheduler<<std::endl;
     if (scheduler == "s")
       softRealTime(pList, isIO, ioTicks);
     else
       hardRealTime(pList, isIO, ioTicks);
-  }
-
-  if (!pList.empty()) // If the vector is empty, no reason to clear it.
-  {
-    pList.clear();
   }
 
   return 0;
@@ -283,26 +284,25 @@ std::vector<Process> readFile(std::string file)
     exit(-1);
   }
 
-  outputf.open("t", std::ios::trunc | std::ios::out); // Creates temp file.
+  outputf.open("t"); // Creates temp file.
   if (!outputf.is_open())
   {
     std::perror("t");
     exit(1);
   }
 
-  std::getline(inputf, line, '\n');
+  std::getline(inputf, line, '\n'); // Either is /n or /r. On Windows, new line char is \r
   outputf<<line;
 
   while (inputf.peek() != EOF) // Keep going until we have read all content in input.
   {
-    std::getline(inputf, line, '\n'); // On Windows, new line char is \r
+    std::getline(inputf, line, '\n');
     //input.get(); // Grabs the extra \t character at the end of the line.
-    // std::cout<<"'"<<line<<"'"<<std::endl;
 
     // If we do not find a negative char and are not first line in file.
     if (line.find('-') == std::string::npos)
     {
-      outputf<<std::endl; // FENCEPOST ISSUE.  Adds line only when we know process nonnegative.
+      //outputf<<std::endl; // FENCEPOST ISSUE.  Adds line only when we know process nonnegative.
       Process p;
       ss.str(line); // Puts line in stringstream
       ss>>token;
@@ -321,10 +321,8 @@ std::vector<Process> readFile(std::string file)
       ss.clear(); // After using the stream, clear to take more input.
       outputf<<line;
       numProcesses++; // Counts the number of processes.
-      // TODO: Remove error checker below
-      // std::cout<<p.getPID()<<" "<<p.getBurst()<<" "<<p.getArrival()<<" "
-      // <<p.getPriority()<<" "<<p.getDeadline()<<" "<<p.getIO()<<std::endl;
-      pList.push_back(p);
+
+      pList.push_back(p); // Put process in vector.
     }
   }
   // TODO: Remove, used for error checking
@@ -332,8 +330,7 @@ std::vector<Process> readFile(std::string file)
   inputf.close(); // Closing input file.
   outputf.close(); // Close temp.
 
-  //std::rename("t", "clean");
-  //remove("t"); // Remove the data transfering.
+  std::rename("t", "clean");
 
   auto t2 = high_resolution_clock::now();
   /* Getting number of milliseconds as an integer. */
@@ -437,155 +434,6 @@ void createProcesses(std::vector<Process>& pList)
   } 
 }
 
-// The interval from [s to m] and [m+1 to e] in v are sorted
-// The function will merge both of these intervals
-// Such the interval from [s to e] in v becomes sorted
-void mergeSortedIntervals(std::vector<Process>& pList, int s, int m, int e) 
-{
-  // Temp is used to temporary store the vector obtained by merging
-  // Elements from [s to m] and [m+1 to e] in v
-  std::vector<Process> temp;
-  int i, j;
-  i = s;
-  j = m + 1;
-
-  while (i <= m && j <= e) {
-    if (pList[i].getArrival() <= pList[j].getArrival()) 
-    {
-      temp.push_back(pList[i]);
-      ++i;
-    }
-    else 
-    {
-      temp.push_back(pList[j]);
-      ++j;
-    }
-  }
-  while (i <= m) 
-  {
-    temp.push_back(pList[i]);
-        ++i;
-  }
-  while (j <= e) 
-  {
-    temp.push_back(pList[j]);
-    ++j;
-  }
-  for (int i = s; i <= e; ++i)
-    pList[i] = temp[i - s];
-}
-
-// The MergeSort function
-// Sorts the array in the range [s to e] in v using
-// Merge sort algorithm
-void mergeSort(std::vector<Process>& pList, int s, int e) 
-{
-  if (s < e) {
-    int m = (s + e) / 2;
-    mergeSort(pList, s, m);
-    mergeSort(pList, m + 1, e);
-    mergeSortedIntervals(pList, s, m, e);
-  }
-}
-
-void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
-{
-  // Start scheduling process here
-
-}
-
-// CHECK MEMORY LEAKS LATER
-/* Hard Real Time Scheduling */
-void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
-{
-  createSortedFile(pList);
-  int tick = 0;
-  int burst;
-  std::vector<Process> queue, waitList;
-  //printVector(pList); // Error printing.
-  queue.push_back(pList[0]); // Pushing next element to the wait queue
-  std::cout<<"Queue size = "<<queue.size()<<std::endl;
-  printVector(queue); // Error printing.
-
-  while (pList.size() > 0) // Go until we are through every process
-  {
-    if (queue[queue.size() - 1].getArrival() <= tick) // If arrival time is late or equal to clock tick.
-    {
-      Process p = queue[0]; // Store process in variable.
-      std::cout<<"queue before erase"<<std::endl;
-      printVector(queue);
-      //std::cout<<"pid = "<<p.getPID()<<std::endl;
-      queue.erase(queue.begin()); // Remove process from queue.
-      pList.erase(pList.begin()); // Remove process from pList.
-
-      // queue.push_back(pList[0]); // Pushing next element to the wait queue
-      while (p.getBurst() > 0 && tick <= p.getDeadline()) // Execution time of process
-      {
-        p.subtractBurst();
-        std::cout<<"burst = "<<p.getBurst()<<std::endl;
-        tick++;
-        std::cout<<"ticks inside = "<<tick<<std::endl;
-      }
-
-      if (p.getBurst() != 0)
-      {
-        std::cerr<<"\nCollision, process did not finish before deadline. Exiting\n";
-        exit(-1);
-      }
-
-      queue.push_back(pList[0]); // Pushing next element to the wait queue
-
-      std::cout<<"queue after erase"<<std::endl;
-      printVector(queue);
-    }
-    tick++;
-    std::cout<<"ticks outside = "<<tick<<std::endl;
-  }
-
-  if (!queue.empty()) // If not empty, clear to remove memory leaks.
-  {
-    queue.clear();
-  }
-
-  std::cout<<std::endl;
-  // printVector(pList);
-  std::cout<<"Ended with "<<tick<<" ticks\n"; // Error checking.
-}
-
-/* Method to print any Process in a vector */
-void printVector(std::vector<Process>& v)
-{
-  int i;
-
-  std::cout<<"Pid"<<"\t"<<"Bst"<<"\t"<<"Arr"<<"\t"<<"Pri"<<"\t"<<"Dline"<<"\t"<<"I/O\n";
-  for (int i = 0; i < v.size(); i++)
-  {
-    std::cout<<v.at(i).getPID()<<"\t"<<v.at(i).getBurst()<<"\t"<<v.at(i).getArrival()
-    <<"\t"<<v.at(i).getPriority()<<"\t"<<v.at(i).getDeadline()<<"\t"<<v.at(i).getIO()<<std::endl;
-  }
-  std::cout<<std::endl;
-}
-
-/* Error checking method that puts all the contents of pList after it being sorted into a file */
-void createSortedFile(std::vector<Process>& pList)
-{
-  int i;
-  std::ofstream outputf;
-
-  outputf.open("sortedList", std::ios::trunc | std::ios::out);
-  if (!outputf.is_open())
-  {
-    std::perror("sortedList");
-  }
-  outputf<<"Pid"<<"\t"<<"Bst"<<"\t"<<"Arr"<<"\t"<<"Pri"<<"\t"<<"Dline"<<"\t"<<"I/O";
-
-  for (i = 0; i < pList.size(); i++)
-  {
-    outputf<<"\n"<<pList[i].getPID()<<"\t"<<pList[i].getBurst()<<"\t"<<pList[i].getArrival()<<"\t"
-      <<pList[i].getPriority()<<"\t"<<pList[i].getDeadline()<<"\t"<<pList[i].getIO();
-  }
-}
-
 void MultilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues, int timeQuantum) {
     int burst;
 
@@ -646,4 +494,134 @@ void finalDemote(std::vector<Process>& topQueue, std::queue<Process>& lowerQueue
             lowerQueue.push(pList[j]);
         }
     }
+}
+
+void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
+{
+
+}
+
+// CHECK MEMORY LEAKS LATER
+/* Hard Real Time Scheduling */
+void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
+{
+  int tick = 0;
+  int burst;
+  std::vector<Process> ioQueue;
+
+  while (pList.size() > 0) // Go until we are through every process
+  {
+    if (pList[0].getArrival() <= tick) // If arrival time is late or equal to clock tick.
+    {
+      while (pList[0].getBurst() > 0 && tick < pList[0].getDeadline()) // Execution time of process
+      {
+        tick++;
+        pList[0].subtractBurst();
+      }
+
+      if (pList[0].getBurst() != 0) // If process did not finish, exit.
+      {
+        freeVector(pList);
+        exit(-1);
+      }
+      pList.erase(pList.begin()); // Remove process from pList.
+      continue; // Return back to the top to not incriment tick uneccessarily.
+    }
+    tick++;
+    freeVector(pList);
+  }
+}
+
+// The interval from [s to m] and [m+1 to e] in v are sorted
+// The function will merge both of these intervals
+// Such the interval from [s to e] in v becomes sorted
+void mergeSortedIntervals(std::vector<Process>& pList, int s, int m, int e) 
+{
+  // Temp is used to temporary store the vector obtained by merging
+  // Elements from [s to m] and [m+1 to e] in v
+  std::vector<Process> temp;
+  int i, j;
+  i = s;
+  j = m + 1;
+
+  while (i <= m && j <= e) {
+    if (pList[i].getArrival() <= pList[j].getArrival()) 
+    {
+      temp.push_back(pList[i]);
+      ++i;
+    }
+    else 
+    {
+      temp.push_back(pList[j]);
+      ++j;
+    }
+  }
+  while (i <= m) 
+  {
+    temp.push_back(pList[i]);
+        ++i;
+  }
+  while (j <= e) 
+  {
+    temp.push_back(pList[j]);
+    ++j;
+  }
+  for (int i = s; i <= e; ++i)
+    pList[i] = temp[i - s];
+
+  freeVector(temp);
+}
+
+// The MergeSort function
+// Sorts the array in the range [s to e] in v using
+// Merge sort algorithm
+void mergeSort(std::vector<Process>& pList, int s, int e) 
+{
+  if (s < e) {
+    int m = (s + e) / 2;
+    mergeSort(pList, s, m);
+    mergeSort(pList, m + 1, e);
+    mergeSortedIntervals(pList, s, m, e);
+  }
+}
+
+/* Method to print any Process in a vector */
+void printVector(std::vector<Process>& v)
+{
+  int i;
+
+  std::cout<<"Pid"<<"\t"<<"Bst"<<"\t"<<"Arr"<<"\t"<<"Pri"<<"\t"<<"Dline"<<"\t"<<"I/O\n";
+  for (int i = 0; i < v.size(); i++)
+  {
+    std::cout<<v.at(i).getPID()<<"\t"<<v.at(i).getBurst()<<"\t"<<v.at(i).getArrival()
+    <<"\t"<<v.at(i).getPriority()<<"\t"<<v.at(i).getDeadline()<<"\t"<<v.at(i).getIO()<<std::endl;
+  }
+  std::cout<<std::endl;
+}
+
+/* Error checking method that puts all the contents of pList after it being sorted into a file */
+void createSortedFile(std::vector<Process>& pList)
+{
+  int i;
+  std::ofstream outputf;
+
+  outputf.open("sortedList", std::ios::trunc | std::ios::out);
+  if (!outputf.is_open())
+  {
+    std::perror("sortedList");
+  }
+  outputf<<"Pid"<<"\t"<<"Bst"<<"\t"<<"Arr"<<"\t"<<"Pri"<<"\t"<<"Dline"<<"\t"<<"I/O";
+
+  for (i = 0; i < pList.size(); i++)
+  {
+    outputf<<"\n"<<pList[i].getPID()<<"\t"<<pList[i].getBurst()<<"\t"<<pList[i].getArrival()<<"\t"
+      <<pList[i].getPriority()<<"\t"<<pList[i].getDeadline()<<"\t"<<pList[i].getIO();
+  }
+}
+
+/* To remove memory, create empty vector and swap values of used vector with empty vector */
+void freeVector(std::vector<Process>& v)
+{
+  std::vector<Process> empty;
+  v.swap(empty);
 }
