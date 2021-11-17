@@ -132,7 +132,7 @@ int main()
   if (scheduler == "mfqs") // MFQS
   {
       mergeSort(pList, 0, pList.size() - 1);
-      std::cout << "im in mfqs";
+      //std::cout << "im in mfqs";
       multilevelFeedbackPriorityQueue(pList, numQueues, 2);
   }
   else // RTS
@@ -544,12 +544,17 @@ void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues,
 
 // Used for subtracting burst times and demoting processes to a lower queue
 void demoteQueue(std::vector<Process>& topQueue, std::vector<Process>& lowerQueue, int timeQuantum, int tick, int ageTicks) {
+    bool broke = false;
     // Todo I/O
     while (topQueue.size() > 0) // Go until we are through every process
     {
         if (topQueue[0].getArrival() <= tick) // If arrival time is late or equal to clock tick.
-        {
-            printVector(topQueue);
+        {       
+                std::cout << tick;
+                std::cout << "\n";
+                //printVector(topQueue);
+                //std::cout << "\n";
+            
             for (int i = 0; i < timeQuantum; i++) {
                 int burst = topQueue[0].getBurst() - 1;
                 topQueue[0].setBurst(burst);
@@ -557,14 +562,16 @@ void demoteQueue(std::vector<Process>& topQueue, std::vector<Process>& lowerQueu
                     //std::cout << "\n erasing " + topQueue[i];
                     topQueue.erase(topQueue.begin());
                     tick++;
+                    broke = true;
                     break;
                 }
                 tick++;
             }
-            if (topQueue[0].getBurst() > 0) {
+            if (topQueue[0].getBurst() > 0 && !broke) {
                 lowerQueue.push_back(topQueue[0]);
                 topQueue.erase(topQueue.begin());
             }
+            broke = false;
         } 
         else {
             tick++;
@@ -572,18 +579,6 @@ void demoteQueue(std::vector<Process>& topQueue, std::vector<Process>& lowerQueu
         //freeVector(topQueue);
     }
     std::cout << "\n leaving while \n";
-    // Old MFQS Code
-    /*for (int j = 0; j < topQueue.size() - 1; j++) {
-        burst = topQueue[j].getBurst() - timeQuantum;
-        topQueue[j].setBurst(burst);
-        if (topQueue[j].getBurst() <= 0) {
-            topQueue.erase(j);
-        }
-        else {
-            lowerQueue.push_back(topQueue[j]);
-            topQueue.erase(j);
-        }
-    }*/
 }
 
 void FCFS(std::vector<Process>& fcfsQueue, int timeQuantum, int tick) {
@@ -608,21 +603,6 @@ void FCFS(std::vector<Process>& fcfsQueue, int timeQuantum, int tick) {
         freeVector(fcfsQueue);
     }
 }
-
-// Used for final burst time check and demoting the processes into the FCFS queue
-//void finalDemote(std::vector<Process>& topQueue, std::queue<Process>& lowerQueue, int timeQuantum, int tick) {
-//    for (int j = 0; j < topQueue.size() - 1; j++) {
-//        burst = topQueue[j].getBurst() - timeQuantum;
-//        topQueue[j].setBurst(burst);
-//        if (topQueue[j].getBurst() <= 0) {
-//            topQueue.erase(j);
-//        }
-//        else {
-//            lowerQueue.push(topQueue[j]);
-//            topQueue.erase(j);
-//        }
-//    }
-//}
 
 void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
 {
