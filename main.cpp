@@ -334,7 +334,6 @@ std::vector<Process> readFile(std::string file, bool isIO, int ioTicks)
      
       ss.clear(); // After using the stream, clear to take more input.
       outputf<<line; // Put line in file.
-      numProcesses++; // Counts the number of processes.
 
       pList.push_back(p); // Put process in vector.
     }
@@ -570,9 +569,9 @@ void demoteQueue(std::vector<Process>& topQueue, std::vector<Process>& lowerQueu
         else {
             tick++;
         }
-        //freeVector(topQueue);
     }
     std::cout << "\n leaving while \n";
+    freeVector(topQueue);
 }
 
 void FCFS(std::vector<Process>& fcfsQueue, int timeQuantum, int tick) {
@@ -594,8 +593,8 @@ void FCFS(std::vector<Process>& fcfsQueue, int timeQuantum, int tick) {
         else {
             tick++;
         }
-        freeVector(fcfsQueue);
     }
+    freeVector(fcfsQueue);
 }
 
 void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
