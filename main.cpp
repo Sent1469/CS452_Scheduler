@@ -331,12 +331,6 @@ std::vector<Process> readFile(std::string file, bool isIO, int ioTicks)
       p.setDeadline(std::stoi(token));
       ss>>token;
       p.setIO(std::stoi(token));
-      // Burst check, if less or equal dont add to file and list.
-      if (isIO && p.getIO() > 0 && p.getBurst() <= ioTicks)
-      {
-        ss.clear(); // After using the stream, clear to take more input.
-        continue;
-      }
      
       ss.clear(); // After using the stream, clear to take more input.
       outputf<<line; // Put line in file.
