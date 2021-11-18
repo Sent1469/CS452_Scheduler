@@ -9,6 +9,8 @@
 #include <chrono>
 #include <queue>
 
+#define DEBUG
+
 class Process 
 {
   private:
@@ -79,7 +81,7 @@ class Process
 std::string toLower(std::string str);
 void mergeSort(std::vector<Process>& v, int s, int e);
 void mergeSortedIntervals(std::vector<Process>& v, int s, int m, int e);
-std::string userInput(int *nQs, int *ageTks, bool *isIO, bool *isInteractive, int *ioTks);
+std::string userInput(int *nQs, int *timeQuantum, int *ageTks, bool *isIO, bool *isInteractive, int *ioTks);
 std::vector<Process> readFile(std::string file, bool isIO, int ioTicks);
 void createSortedFile(std::vector<Process>& pList);
 void createProcesses(std::vector<Process>& pList);
@@ -94,6 +96,7 @@ void FCFS(std::vector<Process>& fcfsQueue, int timeQuantum, int tick, int ageTic
 int main()
 { 
   int numQueues = 0;
+  int timeQuantum = 0;
   int ageTicks = 0;
   int ioTicks = 0;
   bool isInteractive = false;
@@ -101,9 +104,9 @@ int main()
   std::vector<Process> pList;
   std::string scheduler;
 
-  scheduler = userInput(&numQueues, &ageTicks, &isInteractive, &isIO, &ioTicks);
+  scheduler = userInput(&numQueues, &timeQuantum, &ageTicks, &isInteractive, &isIO, &ioTicks);
 
-  std::cout<<numQueues<<std::endl<<ageTicks<<std::endl<<ioTicks<<std::endl
+  std::cout<<numQueues<<std::endl<<timeQuantum<<std::endl<<ageTicks<<std::endl<<ioTicks<<std::endl
     <<isInteractive<<std::endl<<isIO<<std::endl;
 
   if (!isInteractive) // If not interactive, must read from file.
@@ -133,7 +136,7 @@ int main()
   {
       mergeSort(pList, 0, pList.size() - 1);
       //std::cout << "im in mfqs";
-      multilevelFeedbackPriorityQueue(pList, numQueues, 4, ageTicks);
+      multilevelFeedbackPriorityQueue(pList, numQueues, timeQuantum);
   }
   else // RTS
   {
@@ -161,9 +164,9 @@ std::string toLower(std::string str)
 * Asks for user input on certain variables for each scheduler type.
 * Scheduler types are Hard and Soft RTS, and MLFQS.
 */
-std::string userInput(int *numQueues, int *ageTicks, bool *isInteractive, bool *isIO, int *ioTicks)
+std::string userInput(int *numQueues, int *timeQuantum, int *ageTicks, bool *isInteractive, bool *isIO, int *ioTicks)
 {
-  std::string scheduler, nQs, ageTks, interactive, io;
+  std::string scheduler, nQs, timeQ, ageTks, interactive, io;
   // Start user input
   std::cout<<"MFQS or RTS? ";
   std::getline(std::cin, scheduler);
@@ -176,7 +179,7 @@ std::string userInput(int *numQueues, int *ageTicks, bool *isInteractive, bool *
   // Go until we get the correct input
   while (scheduler.compare("mfqs") != 0 && scheduler.compare("rts") != 0)
   {
-    std::cout<<"Incorrect input.\nMFQS or RTS? ";
+    std::cout<<"Incorrect input, must be \"mfqs\" or \"MFQS\" or \"rts\" or \"RTS\".\nMFQS or RTS? ";
     std::getline(std::cin, scheduler);
     while (scheduler.empty())
     {
@@ -218,7 +221,26 @@ std::string userInput(int *numQueues, int *ageTicks, bool *isInteractive, bool *
       }
     }
     *numQueues = std::stoi(nQs);
-
+    // Time quantum
+    std::cout<<"What is the time quantum? ";
+    std::getline(std::cin, timeQ);
+    while (timeQ.empty())
+    {
+      std::cout<<"Incorrect input\nWhat is the time quantum? ";
+      std::getline(std::cin, timeQ);
+    }
+    while (std::stoi(timeQ) < 1)
+    {
+      std::cout<<"Value for time quantum must be greater than 0\nWhat is the time quantum? ";
+      std::getline(std::cin, timeQ);
+      while (timeQ.empty())
+      {
+        std::cout<<"Incorrect input\nWhat is the time quantum? ";
+        std::getline(std::cin, timeQ);
+      }
+    }
+    *timeQuantum = std::stoi(timeQ);
+    // Aging
     std::cout<<"How many clock ticks for aging? ";
     std::getline(std::cin, ageTks);
     while (ageTks.empty())
@@ -261,7 +283,7 @@ std::string userInput(int *numQueues, int *ageTicks, bool *isInteractive, bool *
       }
     }
   }
-
+  // Process creation
   std::cout<<"Would you like to create processes manually (y/n)? ";
   std::getline(std::cin, interactive);
   while (interactive.empty())
@@ -279,10 +301,10 @@ std::string userInput(int *numQueues, int *ageTicks, bool *isInteractive, bool *
       std::getline(std::cin, interactive);
     }
   }
-
+  // Assigning interactive boolean.
   if (interactive == "y")
     *isInteractive = !*isInteractive;
-
+  // I/O
   std::cout<<"Is there I/O (y/n)? ";
   std::getline(std::cin, io);
   while (io.empty())
@@ -290,7 +312,6 @@ std::string userInput(int *numQueues, int *ageTicks, bool *isInteractive, bool *
     std::cout<<"Incorrect input.\nIs there I/0 (y/n)? ";
     std::getline(std::cin, io);
   }
-
   while (io != "y" && io != "n")
   {
     std::cout<<"Incorrect input, please enter y or n.\nIs there I/O (y/n)? ";
@@ -301,12 +322,12 @@ std::string userInput(int *numQueues, int *ageTicks, bool *isInteractive, bool *
       std::getline(std::cin, io);
     }
   }
-
+  // Assigning I/O boolean.
   if (io == "y")
   {
     *isIO = !*isIO;
   }
-
+  // Return what scheduler we are using.
   return scheduler;
 }
 
@@ -360,7 +381,16 @@ std::vector<Process> readFile(std::string file, bool isIO, int ioTicks)
       p.setDeadline(std::stoi(token));
       ss>>token;
       p.setIO(std::stoi(token));
-     
+      if (isIO && p.getBurst() < p.getIO() && p.getIO() > 0) // If
+      {
+        #if DEBUG
+        {
+          std::cout<<"PID not added = "<<p.getPID()<<std::endl;
+        }
+        ss.clear();
+        continue;
+      }
+      
       ss.clear(); // After using the stream, clear to take more input.
       pList.push_back(p); // Put process in vector.
     }
@@ -514,12 +544,21 @@ void createProcesses(std::vector<Process>& pList)
     }
 
     std::cout<<"Would you like to create more processes (y/n)? ";
-    std::cin>>moreProcesses;
-
+    std::getline(std::cin, moreProcesses);
+    while (moreProcesses.empty())
+    {
+      std::cout<<"Incorrect input.\nWould you like to create more processes (y/n)? ";
+      std::getline(std::cin, moreProcesses);
+    }
     while (moreProcesses != "y" && moreProcesses != "n")
     {
       std::cout<<"Incorrect input.\nWould you like to create more processes (y/n)? ";
-      std::cin>>moreProcesses;
+      std::getline(std::cin, moreProcesses);
+      while (moreProcesses.empty())
+      {
+        std::cout<<"Incorrect input.\nWould you like to create more processes (y/n)? ";
+        std::getline(std::cin, moreProcesses);
+      }
     }
   } 
 }
@@ -656,14 +695,14 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
   int i;
   int lowestDeadline;
   // bool leftLoop = false;
-  int totalTicks = 0;
+  int tick = 0;
   std::vector<Process> ioQueue;
   std::vector<Process> queue;
   //printVector(pList); // TODO: Remove later
 
   while (pList.size() > 0) // Go until we are through every process
   {
-    if (queue.size() > 0 || pList[0].getArrival() <= totalTicks) // If arrival time is late or equal to clock tick.
+    if (queue.size() > 0 || pList[0].getArrival() <= tick) // If arrival time is late or equal to clock tick.
     {
       queue.push_back(pList[0]);
       std::cout<<"queue[0] = "<<queue[0].getPID()<<std::endl;
@@ -703,26 +742,38 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
         //   break;
         // }
 
-        totalTicks++;
-        std::cout<<"totalTicks = "<<totalTicks<<std::endl; // TODO: Remove later
-        std::cout<<"PID = "<<queue[lowestDeadline].getPID()<<std::endl; // TODO: Remove later
-        queue[lowestDeadline].subtractBurst();
-        if (queue[lowestDeadline].getBurst() != 0 && queue[lowestDeadline].getDeadline() < totalTicks) // If process did not finish, exit.
+        tick++;
+        #if DEBUG
         {
-          std::cout<<"Collision occured. Exiting\n";
+
+        }
+
+        std::cout<<"tick = "<<tick<<std::endl; // TODO: Remove later
+        std::cout<<"PID = "<<queue[lowestDeadline].getPID(); // TODO: Remove later
+        queue[lowestDeadline].subtractBurst();
+        if (queue[lowestDeadline].getBurst() != 0 && queue[lowestDeadline].getDeadline() < tick) // If process did not finish, exit.
+        {
+          #if DEBUG
+          {
+            std::cout<<"Collision occured. Exiting\n";
+          }
           freeVector(pList);
           freeVector(ioQueue);
           freeVector(queue);
           exit(-1);
         }
-        std::cout<<"burst = "<<queue[lowestDeadline].getBurst()<<std::endl<<std::endl; // TODO: Remove later
+        std::cout<<" burst = "<<queue[lowestDeadline].getBurst()<<std::endl<<std::endl; // TODO: Remove later
 
         if (queue[lowestDeadline].getBurst() == 0) // If process in queue finished, pop it off
         {
+          #if DEBUG
+          {
+            std::cout<<"Process "<<queue[lowestDeadline].getPID()<<" finished at tick "<<tick<<std::endl;
+          }
           queue.erase(queue.begin() + lowestDeadline);
         }
 
-        if (pList[0].getArrival() == totalTicks) // If arrival of next process in queue = tick, leave inner loop.
+        if (pList[0].getArrival() == tick) // If arrival of next process in queue = tick, leave inner loop.
         {
           break;
         }
@@ -764,7 +815,7 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
       // }
       for (i = 0; i < queue.size(); i++) // Look through the entire queue
       {
-        if (queue[i].getBurst() != 0 && queue[i].getDeadline() < totalTicks) // If process did not finish, exit.
+        if (queue[i].getBurst() != 0 && queue[i].getDeadline() < tick) // If process did not finish, exit.
         {
           std::cout<<"Collision occured. Exiting\n";
           freeVector(pList);
@@ -779,7 +830,8 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
       continue; // Return back to the top to not incriment tick uneccessarily.
     }
 
-    totalTicks++;
+    tick++;
+    // std::cout<<"tick = "<<tick<<std::endl;
     // if (ioQueue.size() > 0)
     // {
     //   std::cout<<"in size > 0 outer\n"; // TODO: Remove later
