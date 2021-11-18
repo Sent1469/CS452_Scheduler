@@ -89,9 +89,9 @@ void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void printVector(std::vector<Process>& pList);
 void freeVector(std::vector<Process>& v);
-void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues, int timeQuantum);
-void demoteQueue(std::vector<Process>& topQueue, std::vector<Process>& lowerQueue, int timeQuantum, int tick, int ageTicks);
-void FCFS(std::vector<Process>& fcfsQueue, int timeQuantum, int tick);
+void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues, int timeQuantum, int ageTicks);
+void demoteQueue(std::vector<Process>& topQueue, std::vector<Process>& lowerQueue, int timeQuantum, int tick);
+void FCFS(std::vector<Process>& fcfsQueue, int timeQuantum, int tick, int ageTicks, int numQueues);
 
 int main()
 { 
@@ -563,7 +563,7 @@ void createProcesses(std::vector<Process>& pList)
   } 
 }
 
-void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues, int timeQuantum) {
+void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues, int timeQuantum, int ageTicks) {
     int tick = 0;
 
     // Create RR Queues needed
@@ -577,22 +577,26 @@ void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues,
     // Schedule the processes
     switch (numQueues) {
     case 2:
-        demoteQueue(lowerQueue1, finalQueue, timeQuantum, tick, 2);
+        demoteQueue(pList, finalQueue, timeQuantum, tick);
+        FCFS(finalQueue, timeQuantum, tick, ageTicks, numQueues);
         break;
     case 3:
-        demoteQueue(pList, lowerQueue1, timeQuantum, tick, 2);
-        demoteQueue(lowerQueue1, finalQueue, (timeQuantum * 2), tick, 2);
+        demoteQueue(pList, lowerQueue1, timeQuantum, tick);
+        demoteQueue(lowerQueue1, finalQueue, (timeQuantum * 2), tick);
+        FCFS(finalQueue, timeQuantum, tick, ageTicks, numQueues);
         break;
     case 4:
-        demoteQueue(pList, lowerQueue1, timeQuantum, tick, 2);
-        demoteQueue(lowerQueue1, lowerQueue2, (timeQuantum * 2), tick, 2);
-        demoteQueue(lowerQueue2, finalQueue, (timeQuantum * 4), tick, 2);
+        demoteQueue(pList, lowerQueue1, timeQuantum, tick);
+        demoteQueue(lowerQueue1, lowerQueue2, (timeQuantum * 2), tick);
+        demoteQueue(lowerQueue2, finalQueue, (timeQuantum * 4), tick);
+        FCFS(finalQueue, timeQuantum, tick, ageTicks, numQueues);
         break;
     case 5:
-        demoteQueue(pList, lowerQueue1, timeQuantum, tick, 2);
-        demoteQueue(lowerQueue1, lowerQueue2, (timeQuantum * 2), tick, 2);
-        demoteQueue(lowerQueue2, lowerQueue3, (timeQuantum * 4), tick, 2);
-        demoteQueue(lowerQueue3, finalQueue, (timeQuantum * 8), tick, 2);
+        demoteQueue(pList, lowerQueue1, timeQuantum, tick);
+        demoteQueue(lowerQueue1, lowerQueue2, (timeQuantum * 2), tick);
+        demoteQueue(lowerQueue2, lowerQueue3, (timeQuantum * 4), tick);
+        demoteQueue(lowerQueue3, finalQueue, (timeQuantum * 8), tick);
+        FCFS(finalQueue, timeQuantum, tick, ageTicks, numQueues);
         break;
     }
     freeVector(lowerQueue1);
@@ -601,20 +605,20 @@ void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues,
 }
 
 // Used for subtracting burst times and demoting processes to a lower queue
-void demoteQueue(std::vector<Process>& topQueue, std::vector<Process>& lowerQueue, int timeQuantum, int tick, int ageTicks) {
+void demoteQueue(std::vector<Process>& topQueue, std::vector<Process>& lowerQueue, int timeQuantum, int tick) {
     bool broke = false;
+    int burst = 0;
     // Todo I/O
     while (topQueue.size() > 0) // Go until we are through every process
     {
         if (topQueue[0].getArrival() <= tick) // If arrival time is late or equal to clock tick.
         {       
-                std::cout << tick;
-                std::cout << "\n";
-                //printVector(topQueue);
-                //std::cout << "\n";
+            //printVector(topQueue);
+            std::cout << "\n";
+            std::cout << tick;
             
             for (int i = 0; i < timeQuantum; i++) {
-                int burst = topQueue[0].getBurst() - 1;
+                burst = topQueue[0].getBurst() - 1;
                 topQueue[0].setBurst(burst);
                 if (topQueue[0].getBurst() <= 0) {
                     //std::cout << "\n erasing " + topQueue[i];
@@ -635,30 +639,46 @@ void demoteQueue(std::vector<Process>& topQueue, std::vector<Process>& lowerQueu
             tick++;
         }
     }
-    std::cout << "\n leaving while \n";
+    std::cout << "\n finishing demote. \n";
     freeVector(topQueue);
 }
 
-void FCFS(std::vector<Process>& fcfsQueue, int timeQuantum, int tick) {
+void FCFS(std::vector<Process>& fcfsQueue, int timeQuantum, int tick, int ageTicks, int numQueues) {
+    int ageTickCounter = 0;
+    int burst = 0;
     while (fcfsQueue.size() > 0) // Go until we are through every process
     {
         if (fcfsQueue[0].getArrival() <= tick) // If arrival time is late or equal to clock tick.
         {
-            for (int i = 0; i < timeQuantum; i++) {
-                int burst = fcfsQueue[i].getBurst() - 1;
-                fcfsQueue[i].setBurst(burst);
-                if (fcfsQueue[i].getBurst() <= 0) {
+            while (fcfsQueue[0].getBurst() != 0) {
+                //std::cout << "\n starting fcfs algorithm.";
+                burst = fcfsQueue[0].getBurst() - 1;
+                fcfsQueue[0].setBurst(burst);
+                if (fcfsQueue[0].getBurst() <= 0) {
                     fcfsQueue.erase(fcfsQueue.begin());
                     tick++;
-                    continue;
+                    ageTickCounter++;
+                    if (ageTickCounter == ageTicks) {
+                        std::cout << "\n age tick limit has been hit, aging up.";
+                        multilevelFeedbackPriorityQueue(fcfsQueue, numQueues, timeQuantum, ageTicks);
+                        freeVector(fcfsQueue);
+                    }
+                    break;
                 }
                 tick++;
+                ageTickCounter++;
+                if (ageTickCounter == ageTicks) {
+                    std::cout << "\n age tick limit has been hit, aging up.";
+                    multilevelFeedbackPriorityQueue(fcfsQueue, numQueues, timeQuantum, ageTicks);
+                    freeVector(fcfsQueue);
+                }
             }
         }
         else {
             tick++;
         }
     }
+    std::cout << "\n finishing up.";
     freeVector(fcfsQueue);
 }
 
