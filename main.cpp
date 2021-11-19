@@ -99,6 +99,7 @@ void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void printVector(std::vector<Process>& pList);
 void freeVector(std::vector<Process>& v);
+void freeQueue(std::queue<Process>& q);
 void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues, int timeQuantum, int ageTicks);
 void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue, int timeQuantum, int tick);
 void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, int timeQuantum, int tick, int ageTicks, int numQueues);
@@ -617,7 +618,7 @@ void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues,
 void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue, int timeQuantum, int tick) {
   int i;
   bool broke = false;
-  // Todo I/O
+  // todo I/O
   while (topQueue.size() > 0) // Go until we are through every process
   {
     if (topQueue.front().getArrival() <= tick) // If arrival time is late or equal to clock tick.
@@ -626,17 +627,17 @@ void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue,
       for (i = 0; i < timeQuantum; i++) {
         tick++;
         topQueue.front().subtractBurst();
+        #ifdef DEBUG
+          std::cout<<"tick = "<<tick<<std::endl;
+        #endif
         if (topQueue.front().getBurst() <= 0) {
+          std::cout<<"Process "<<topQueue.front().getPID()<<" finished at tick "<<tick<<std::endl;
           topQueue.pop();
           broke = true;
           break;
         }
       }
-      if (broke)
-      {
-        continue;
-      }
-      else if (topQueue.front().getBurst() > 0) {
+      if (!broke && topQueue.front().getBurst() > 0) {
         lowerQueue.push(topQueue.front());
         topQueue.pop();
       }
@@ -657,23 +658,22 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, int 
   {
     if (fcfsQueue.front().getArrival() <= tick)
     {
-      tick++;
-      fcfsQueue.front().subtractBurst();
-      if (fcfsQueue.front().getBurst() == 0)
+      while (fcfsQueue.front().getBurst() != 0)
       {
-        fcfsQueue.pop();
+        tick++;
+        ageTickCounter++;
+        fcfsQueue.front().subtractBurst();
+        #ifdef DEBUG
+          std::cout<<"tick = "<<tick<<std::endl;
+          std::cout<<"PID = "<<fcfsQueue.front().getPID();
+          std::cout<<" burst = "<<fcfsQueue.front().getPID()<<std::endl<<std::endl;
+        #endif
       }
-
-      ageTickCounter++;
-      if (ageTickCounter == ageTicks)
+      std::cout<<"Process "<<fcfsQueue.front().getPID()<<" finished at tick "<<tick<<std::endl;
+      fcfsQueue.pop();
+      if (ageTickCounter >= ageTicks) // If processes have aged enough, leave FCFS
       {
-        while (fcfsQueue.size() > 0)
-        {
-          processList.push(fcfsQueue.front());
-          fcfsQueue.pop();
-        }
-        std::cout<<"pList size = "<<processList.size()<<std::endl<<"fcfsQueue size = "<<fcfsQueue.size()<<std::endl;
-        return;
+        break;
       }
     }
     else
@@ -681,6 +681,12 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, int 
       tick++;
     }
   }
+  while (fcfsQueue.size() > 0)
+  {
+    processList.push(fcfsQueue.front());
+    fcfsQueue.pop();
+  }
+  std::cout<<"pList size = "<<processList.size()<<std::endl<<"fcfsQueue size = "<<fcfsQueue.size()<<std::endl;
   std::cout << "\n finishing up.";
   // freeVector(fcfsQueue);
 }
@@ -699,23 +705,29 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
   int lowestDeadline;
   // bool leftLoop = false;
   int tick = 0;
-  std::vector<Process> ioQueue;
   std::vector<Process> queue;
-  //printVector(pList); // TODO: Remove later
-
-  while (pList.size() > 0) // Go until we are through every process
+  std::queue<Process> processList;
+  for (i = 0; i < pList.size(); i++) // Convert pList to queue.
   {
-    if (queue.size() > 0 || pList[0].getArrival() <= tick) // If arrival time is late or equal to clock tick.
+    processList.push(pList[i]);
+  }
+  freeVector(pList);
+
+  while (processList.size() > 0) // Go until we are through every process
+  {
+    if (queue.size() > 0 || processList.front().getArrival() <= tick) // If arrival time is late or equal to clock tick.
     {
-      queue.push_back(pList[0]);
-      std::cout<<"queue[0] = "<<queue[0].getPID()<<std::endl;
-      pList.erase(pList.begin());
-      std::cout<<"pList[0] before loop = "<<pList[0].getPID()<<std::endl;
-      while (queue[queue.size() - 1].getArrival() == pList[0].getArrival())
+      queue.push_back(processList.front());
+      processList.pop();
+      #ifdef DEBUG
+        std::cout<<"queue[0] = "<<queue[0].getPID()<<std::endl;
+        std::cout<<"processList front = "<<processList.front().getPID()<<std::endl;
+      #endif
+      while (queue[queue.size() - 1].getArrival() == processList.front().getArrival())
       {
         // std::cout<<"pList[0] = "<<pList[0].getPID()<<std::endl;
-        queue.push_back(pList[0]);
-        pList.erase(pList.begin());
+        queue.push_back(processList.front());
+        processList.pop();
       }
       lowestDeadline = 0; // Set to 0 as initial value for finding smallest deadline.
       for (i = 1; i < queue.size(); i++) // Loop to find the smallest deadline.
@@ -725,9 +737,6 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
           lowestDeadline = i;
         }
       }
-      // printVector(queue);
-      //exit(-1);
-
       // if (queue.size() > 1)
       // {
       //   mergeSort(queue, 0, queue.size() - 1);
@@ -746,21 +755,17 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
         // }
 
         tick++;
+        queue[lowestDeadline].subtractBurst();
         #ifdef DEBUG
           std::cout<<"tick = "<<tick<<std::endl;
           std::cout<<"PID = "<<queue[lowestDeadline].getPID();
           std::cout<<" burst = "<<queue[lowestDeadline].getBurst()<<std::endl<<std::endl;
         #endif
-
-        queue[lowestDeadline].subtractBurst();
         if (queue[lowestDeadline].getBurst() != 0 && queue[lowestDeadline].getDeadline() < tick) // If process did not finish, exit.
         {
-          #ifdef DEBUG
-            std::cout<<"Collision occured. Exiting\n";
-          #endif
-          freeVector(pList);
-          freeVector(ioQueue);
+          std::cout<<"Collision occured for process "<<queue[lowestDeadline].getPID()<<". Exiting\n";
           freeVector(queue);
+          freeQueue(processList);
           exit(-1);
         }
 
@@ -772,7 +777,7 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
           queue.erase(queue.begin() + lowestDeadline);
         }
 
-        if (pList[0].getArrival() == tick) // If arrival of next process in queue = tick, leave inner loop.
+        if (processList.front().getArrival() == tick) // If arrival of next process in queue = tick, leave inner loop.
         {
           break;
         }
@@ -812,14 +817,13 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
       //   }
       //   pList.erase(pList.begin()); // Remove process from pList.
       // }
-      for (i = 0; i < queue.size(); i++) // Look through the entire queue
+      for (i = 0; i < queue.size(); i++) // Look through the entire queue to find processes that didn't finish
       {
         if (queue[i].getBurst() != 0 && queue[i].getDeadline() < tick) // If process did not finish, exit.
         {
-          std::cout<<"Collision occured. Exiting\n";
-          freeVector(pList);
-          freeVector(ioQueue);
+          std::cout<<"Collision occured for process "<<queue[i].getPID()<<". Exiting\n";
           freeVector(queue);
+          freeQueue(processList);
           exit(-1);
         }
       }
@@ -853,8 +857,7 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
     //   }
     // }
   }
-  freeVector(queue);
-  freeVector(pList);
+  // freeVector(queue);
 }
 
 // The interval from [s to m] and [m+1 to e] in v are sorted
@@ -949,4 +952,10 @@ void freeVector(std::vector<Process>& v)
 {
   std::vector<Process> empty;
   v.swap(empty);
+}
+
+void freeQueue(std::queue<Process>& q)
+{
+  std::queue<Process> empty;
+  q.swap(empty);
 }
