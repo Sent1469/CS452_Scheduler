@@ -13,11 +13,10 @@
 
 class Process 
 {
-  private:
+  public:
     int pid, burst, arrival, priority, deadline, io;
     int age = 0;
   
-  public:
     void setPID(int pid)
     {
       this->pid = pid;
@@ -98,9 +97,11 @@ void createProcesses(std::vector<Process>& pList);
 void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void printVector(std::vector<Process>& pList);
+void printQueue(std::queue<Process>& v);
 void freeVector(std::vector<Process>& v);
 void freeQueue(std::queue<Process>& q);
-void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues, int timeQuantum, int ageTicks);
+std::queue<Process> sortByPriority(std::vector<Process>& pList);
+void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks);
 void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue, int timeQuantum, int tick);
 void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, int timeQuantum, int tick, int ageTicks, int numQueues);
 
@@ -146,8 +147,8 @@ int main()
   if (scheduler == "mfqs") // MFQS
   {
       mergeSort(pList, 0, pList.size() - 1);
-      //std::cout << "im in mfqs";
-      multilevelFeedbackPriorityQueue(pList, numQueues, timeQuantum, ageTicks);
+      std::queue<Process> sortedList = sortByPriority(pList);
+      multilevelFeedbackPriorityQueue(sortedList, numQueues, timeQuantum, ageTicks);
   }
   else // RTS
   {
@@ -555,8 +556,44 @@ void createProcesses(std::vector<Process>& pList)
     }
   } 
 }
+// Key for ordering least to greatest priority
+struct less_than_key
+{
+    inline bool operator() (const Process struct1, const Process struct2)
+    {
+        return (struct1.priority < struct2.priority);
+    }
+};
 
-void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues, int timeQuantum, int ageTicks) {
+std::queue<Process> sortByPriority(std::vector<Process>& pList) {
+    std::vector<Process> sameArrival;
+    std::queue<Process> prioSorted;
+    int index = 0;
+    int arr = 0;
+    int counter = 0;
+    while(1) {
+
+        if(pList[index].getArrival() == arr) {
+            sameArrival.push_back(pList[index]);
+            index++;
+        }
+        else {
+            std::sort(sameArrival.begin(), sameArrival.end(), less_than_key());
+            for (int i = 0; i < sameArrival.size(); i++) {
+                prioSorted.push(sameArrival[i]);
+            }
+            freeVector(sameArrival);
+            arr++;
+        }
+
+        if (counter >= pList.size()) {
+            return prioSorted;
+        }
+        counter++;
+    }
+}
+
+void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks) {
   bool going = true;
   int tick = 0;
 
@@ -564,46 +601,36 @@ void multilevelFeedbackPriorityQueue(std::vector<Process>& pList, int numQueues,
   std::queue<Process> lowerQueue1;
   std::queue<Process> lowerQueue2;
   std::queue<Process> lowerQueue3;
-  std::queue<Process> processList;
 
   // Create FCFS Queue
   std::queue<Process> finalQueue;
 
-  for (int i = 0; i < pList.size(); i++) // Convert pList to queue.
-  {
-    processList.push(pList[i]);
-  }
-  freeVector(pList);
 
   // Schedule the processes
-  while (processList.size() > 0)
+  while (pList.size() > 0)
   {
-    std::cout<<"in while\n";
-    std::cout<<"pList size = "<<processList.size();
     switch (numQueues) {
     case 2:
-      demoteQueue(processList, finalQueue, timeQuantum, tick);
-      FCFS(finalQueue, processList, timeQuantum, tick, ageTicks, numQueues);
+      demoteQueue(pList, finalQueue, timeQuantum, tick);
+      FCFS(finalQueue, pList, timeQuantum, tick, ageTicks, numQueues);
       break;
     case 3:
-      demoteQueue(processList, lowerQueue1, timeQuantum, tick);
-      if (lowerQueue1.size() > 0)
-        demoteQueue(lowerQueue1, finalQueue, (timeQuantum * 2), tick);
-      if (finalQueue.size() > 0)
-        FCFS(finalQueue, processList, timeQuantum, tick, ageTicks, numQueues);
+      demoteQueue(pList, lowerQueue1, timeQuantum, tick);
+      demoteQueue(lowerQueue1, finalQueue, (timeQuantum * 2), tick);
+      FCFS(finalQueue, pList, timeQuantum, tick, ageTicks, numQueues);
       break;
     case 4:
-      demoteQueue(processList, lowerQueue1, timeQuantum, tick);
+      demoteQueue(pList, lowerQueue1, timeQuantum, tick);
       demoteQueue(lowerQueue1, lowerQueue2, (timeQuantum * 2), tick);
       demoteQueue(lowerQueue2, finalQueue, (timeQuantum * 4), tick);
-      FCFS(finalQueue, processList, timeQuantum, tick, ageTicks, numQueues);
+      FCFS(finalQueue, pList, timeQuantum, tick, ageTicks, numQueues);
       break;
     case 5:
-      demoteQueue(processList, lowerQueue1, timeQuantum, tick);
+      demoteQueue(pList, lowerQueue1, timeQuantum, tick);
       demoteQueue(lowerQueue1, lowerQueue2, (timeQuantum * 2), tick);
       demoteQueue(lowerQueue2, lowerQueue3, (timeQuantum * 4), tick);
       demoteQueue(lowerQueue3, finalQueue, (timeQuantum * 8), tick);
-      FCFS(finalQueue, processList, timeQuantum, tick, ageTicks, numQueues);
+      FCFS(finalQueue, pList, timeQuantum, tick, ageTicks, numQueues);
       break;
     }
   }
@@ -627,11 +654,8 @@ void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue,
       for (i = 0; i < timeQuantum; i++) {
         tick++;
         topQueue.front().subtractBurst();
-        #ifdef DEBUG
-          std::cout<<"tick = "<<tick<<std::endl;
-        #endif
+        printQueue(topQueue);
         if (topQueue.front().getBurst() <= 0) {
-          std::cout<<"Process "<<topQueue.front().getPID()<<" finished at tick "<<tick<<std::endl;
           topQueue.pop();
           broke = true;
           break;
@@ -646,8 +670,6 @@ void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue,
       tick++;
     }
   }
-  std::cout << "\n finishing demote. \n";
-  std::cout<<"pList size = "<<topQueue.size()<<std::endl<<"lowerQueue size = "<<lowerQueue.size()<<std::endl;
   // freeVector(topQueue);
 }
 
@@ -663,13 +685,7 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, int 
         tick++;
         ageTickCounter++;
         fcfsQueue.front().subtractBurst();
-        #ifdef DEBUG
-          std::cout<<"tick = "<<tick<<std::endl;
-          std::cout<<"PID = "<<fcfsQueue.front().getPID();
-          std::cout<<" burst = "<<fcfsQueue.front().getPID()<<std::endl<<std::endl;
-        #endif
       }
-      std::cout<<"Process "<<fcfsQueue.front().getPID()<<" finished at tick "<<tick<<std::endl;
       fcfsQueue.pop();
       if (ageTickCounter >= ageTicks) // If processes have aged enough, leave FCFS
       {
@@ -926,6 +942,19 @@ void printVector(std::vector<Process>& v)
   }
   std::cout<<std::endl;
 }
+void printQueue(std::queue<Process>& v)
+{
+    int i;
+
+    std::cout<<"Pid"<<"\t"<<"Bst"<<"\t"<<"Arr"<<"\t"<<"Pri"<<"\t"<<"Dline"<<"\t"<<"I/O\n";
+    while(!v.empty()) {
+        std::cout<<v.front().getPID()<<"\t"<<v.front().getBurst()<<"\t"<<v.front().getArrival()
+        <<"\t"<<v.front().getPriority()<<"\t"<<v.front().getDeadline()<<"\t"<<v.front().getIO()<<std::endl;
+        v.pop();
+    }
+    std::cout << std::endl;
+}
+
 
 /* Error checking method that puts all the contents of pList after it being sorted into a file */
 void createSortedFile(std::vector<Process>& pList)
