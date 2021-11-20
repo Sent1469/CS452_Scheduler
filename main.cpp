@@ -15,8 +15,8 @@ class Process
 {
   public:
     int pid, burst, arrival, priority, deadline, io, initialBurst, tickEntered;
+    int age = 0;
   
-  public:
     void setPID(int pid)
     {
       this->pid = pid;
@@ -100,6 +100,7 @@ void createProcesses(std::vector<Process>& pList);
 void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void printVector(std::vector<Process>& pList);
+void printQueue(std::queue<Process>& v);
 void freeVector(std::vector<Process>& v);
 void freeQueue(std::queue<Process>& q);
 std::queue<Process> sortByPriority(std::vector<Process>& pList);
@@ -149,8 +150,8 @@ int main()
   if (scheduler == "mfqs") // MFQS
   {
       mergeSort(pList, 0, pList.size() - 1);
-      //std::cout << "im in mfqs";
-      multilevelFeedbackPriorityQueue(pList, numQueues, timeQuantum, ageTicks);
+      std::queue<Process> sortedList = sortByPriority(pList);
+      multilevelFeedbackPriorityQueue(sortedList, numQueues, timeQuantum, ageTicks);
   }
   else // RTS
   {
@@ -558,6 +559,14 @@ void createProcesses(std::vector<Process>& pList)
     }
   } 
 }
+// Key for ordering least to greatest priority
+struct less_than_key
+{
+    inline bool operator() (const Process struct1, const Process struct2)
+    {
+        return (struct1.priority < struct2.priority);
+    }
+};
 
 std::queue<Process> sortByPriority(std::vector<Process>& pList) {
     std::vector<Process> sameArrival;
@@ -579,7 +588,7 @@ std::queue<Process> sortByPriority(std::vector<Process>& pList) {
             freeVector(sameArrival);
             arr++;
         }
-
+      
         // if (counter >= pList.size()) {
         //     return prioSorted;
         // }
@@ -655,10 +664,8 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
   // }
 
   // Schedule the processes
-  while (processList.size() > 0)
+  while (pList.size() > 0)
   {
-    std::cout<<"in while\n";
-    std::cout<<"pList size = "<<processList.size();
     switch (numQueues) {
     case 2:
       demoteQueue(pList, finalQueue, ioQueue, timeQuantum, tick);
@@ -946,6 +953,19 @@ void printVector(std::vector<Process>& v)
   }
   std::cout<<std::endl;
 }
+void printQueue(std::queue<Process>& v)
+{
+    int i;
+
+    std::cout<<"Pid"<<"\t"<<"Bst"<<"\t"<<"Arr"<<"\t"<<"Pri"<<"\t"<<"Dline"<<"\t"<<"I/O\n";
+    while(!v.empty()) {
+        std::cout<<v.front().getPID()<<"\t"<<v.front().getBurst()<<"\t"<<v.front().getArrival()
+        <<"\t"<<v.front().getPriority()<<"\t"<<v.front().getDeadline()<<"\t"<<v.front().getIO()<<std::endl;
+        v.pop();
+    }
+    std::cout << std::endl;
+}
+
 
 /* Error checking method that puts all the contents of pList after it being sorted into a file */
 void createSortedFile(std::vector<Process>& pList)
