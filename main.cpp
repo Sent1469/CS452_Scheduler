@@ -106,8 +106,8 @@ void freeVector(std::vector<Process>& v);
 void freeQueue(std::queue<Process>& q);
 std::queue<Process> sortByPriority(std::vector<Process>& pList);
 void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks);
-void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue, std::queue<int>& turnAroundTime, int timeQuantum, int tick);
-void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, std::queue<int>& turnAroundTime, int timeQuantum, int tick, int ageTicks, int numQueues);
+void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue, std::queue<Process>& ioQueue, int timeQuantum, int tick, std::queue<int>& turnAroundTime);
+void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& pList, std::queue<Process>& ioQueue, int tick, int ageTicks, std::queue<int>& turnAroundTime);
 int getAverageWaitingTime(std::vector<Process>& pList);
 int getAverageTurnaroundTime(std::queue<int>& pList);
 
@@ -615,6 +615,7 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
   std::queue<Process> lowerQueue2;
   std::queue<Process> lowerQueue3;
   std::queue<Process> ioQueue;
+  std::queue<int> turnAroundTime;
 
   std::cout<<"topQueue size = "<<topQueue.size()<<std::endl;
   std::cout<<"pList size = "<<pList.size()<<std::endl;
@@ -673,28 +674,28 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
   {
     switch (numQueues) {
     case 2:
-      demoteQueue(pList, finalQueue, ioQueue, timeQuantum, tick);
-      FCFS(finalQueue, pList, ioQueue, tick, ageTicks);
+      demoteQueue(pList, finalQueue, ioQueue, timeQuantum, tick, turnAroundTime);
+      FCFS(finalQueue, pList, ioQueue, tick, ageTicks, turnAroundTime);
       break;
     case 3:
-      demoteQueue(pList, lowerQueue1, ioQueue, timeQuantum, tick);
+      demoteQueue(pList, lowerQueue1, ioQueue, timeQuantum, tick, turnAroundTime);
       if (pList.size() == 0)
-        demoteQueue(lowerQueue1, finalQueue, ioQueue, (timeQuantum * 2), tick);
+        demoteQueue(lowerQueue1, finalQueue, ioQueue, (timeQuantum * 2), tick, turnAroundTime);
       if (pList.size() == 0)
-        FCFS(finalQueue, pList, ioQueue, tick, ageTicks);
+        FCFS(finalQueue, pList, ioQueue, tick, ageTicks, turnAroundTime);
       break;
     case 4:
-      demoteQueue(pList, lowerQueue1, ioQueue, timeQuantum, tick);
-      demoteQueue(lowerQueue1, lowerQueue2, ioQueue, (timeQuantum * 2), tick);
-      demoteQueue(lowerQueue2, finalQueue, ioQueue, (timeQuantum * 4), tick);
-      FCFS(finalQueue, pList, ioQueue, tick, ageTicks);
+      demoteQueue(pList, lowerQueue1, ioQueue, timeQuantum, tick, turnAroundTime);
+      demoteQueue(lowerQueue1, lowerQueue2, ioQueue, (timeQuantum * 2), tick, turnAroundTime);
+      demoteQueue(lowerQueue2, finalQueue, ioQueue, (timeQuantum * 4), tick, turnAroundTime);
+      FCFS(finalQueue, pList, ioQueue, tick, ageTicks, turnAroundTime);
       break;
     case 5:
-      demoteQueue(pList, lowerQueue1, ioQueue, timeQuantum, tick);
-      demoteQueue(lowerQueue1, lowerQueue2, ioQueue, (timeQuantum * 2), tick);
-      demoteQueue(lowerQueue2, lowerQueue3, ioQueue, (timeQuantum * 4), tick);
-      demoteQueue(lowerQueue3, finalQueue, ioQueue, (timeQuantum * 8), tick);
-      FCFS(finalQueue, pList, ioQueue, tick, ageTicks);
+      demoteQueue(pList, lowerQueue1, ioQueue, timeQuantum, tick, turnAroundTime);
+      demoteQueue(lowerQueue1, lowerQueue2, ioQueue, (timeQuantum * 2), tick, turnAroundTime);
+      demoteQueue(lowerQueue2, lowerQueue3, ioQueue, (timeQuantum * 4), tick, turnAroundTime);
+      demoteQueue(lowerQueue3, finalQueue, ioQueue, (timeQuantum * 8), tick, turnAroundTime);
+      FCFS(finalQueue, pList, ioQueue, tick, ageTicks, turnAroundTime);
       break;
     }
   }
@@ -709,7 +710,7 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
 
 // Used for subtracting burst times and demoting processes to a lower queue
 void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue, 
-  std::queue<Process>& ioQueue, int timeQuantum, int tick) 
+    std::queue<Process>& ioQueue, int timeQuantum, int tick, std::queue<int>& turnAroundTime)
 {
   int i, j;
   bool broke = false;
@@ -752,7 +753,7 @@ void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue,
   // freeVector(topQueue);
 }
 
-void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& pList, std::queue<Process>& ioQueue, int tick, int ageTicks) 
+void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& pList, std::queue<Process>& ioQueue, int tick, int ageTicks, std::queue<int>& turnAroundTime) 
 {
   int i;
   bool io = false;
@@ -790,7 +791,7 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& pList, std::queue
     fcfsQueue.pop();
   }
   std::cout<<"pList size = "<<pList.size()<<std::endl<<"fcfsQueue size = "<<fcfsQueue.size()<<std::endl;
-  std::cout << "\n finishing up.";
+  std::cout << "\n finishing up.\n";
   // freeVector(fcfsQueue);
 }
 
