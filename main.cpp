@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <chrono>
 #include <queue>
+#include <chrono>
 
 #define DEBUG
 
@@ -102,8 +103,10 @@ void freeVector(std::vector<Process>& v);
 void freeQueue(std::queue<Process>& q);
 std::queue<Process> sortByPriority(std::vector<Process>& pList);
 void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks);
-void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue, int timeQuantum, int tick);
-void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, int timeQuantum, int tick, int ageTicks, int numQueues);
+void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue, std::queue<int>& turnAroundTime, int timeQuantum, int tick);
+void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, std::queue<int>& turnAroundTime, int timeQuantum, int tick, int ageTicks, int numQueues);
+int getAverageWaitingTime(std::vector<Process>& pList);
+int getAverageTurnaroundTime(std::queue<int>& pList);
 
 int main()
 { 
@@ -146,9 +149,18 @@ int main()
 
   if (scheduler == "mfqs") // MFQS
   {
+      // Get Average Waiting Time
+      int waitTime = getAverageWaitingTime(pList);
+      // Start timer
+      auto start = std::chrono::high_resolution_clock::now();
       mergeSort(pList, 0, pList.size() - 1);
       std::queue<Process> sortedList = sortByPriority(pList);
       multilevelFeedbackPriorityQueue(sortedList, numQueues, timeQuantum, ageTicks);
+      // End Timer
+      auto stop = std::chrono::high_resolution_clock::now();
+      std::chrono::duration<double> elapsed_seconds = stop - start;
+      std::cout << "Total Runtime: " << elapsed_seconds.count() << "s\n";
+      std::cout << "Average Waiting Time: " << waitTime << " ticks\n";
   }
   else // RTS
   {
@@ -570,9 +582,7 @@ std::queue<Process> sortByPriority(std::vector<Process>& pList) {
     std::queue<Process> prioSorted;
     int index = 0;
     int arr = 0;
-    int counter = 0;
     while(1) {
-
         if(pList[index].getArrival() == arr) {
             sameArrival.push_back(pList[index]);
             index++;
@@ -585,11 +595,10 @@ std::queue<Process> sortByPriority(std::vector<Process>& pList) {
             freeVector(sameArrival);
             arr++;
         }
-
-        if (counter >= pList.size()) {
+        if (prioSorted.size() == pList.size()) {
+            freeVector(pList);
             return prioSorted;
         }
-        counter++;
     }
 }
 
@@ -605,35 +614,40 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
   // Create FCFS Queue
   std::queue<Process> finalQueue;
 
+  // Create Turnaround Time Queue
+  std::queue<int> turnAroundTime;
+
 
   // Schedule the processes
   while (pList.size() > 0)
   {
     switch (numQueues) {
     case 2:
-      demoteQueue(pList, finalQueue, timeQuantum, tick);
-      FCFS(finalQueue, pList, timeQuantum, tick, ageTicks, numQueues);
+      demoteQueue(pList, finalQueue, turnAroundTime, timeQuantum, tick);
+      FCFS(finalQueue, pList, turnAroundTime, timeQuantum, tick, ageTicks, numQueues);
       break;
     case 3:
-      demoteQueue(pList, lowerQueue1, timeQuantum, tick);
-      demoteQueue(lowerQueue1, finalQueue, (timeQuantum * 2), tick);
-      FCFS(finalQueue, pList, timeQuantum, tick, ageTicks, numQueues);
+      demoteQueue(pList, lowerQueue1, turnAroundTime, timeQuantum, tick);
+      demoteQueue(lowerQueue1, finalQueue, turnAroundTime, (timeQuantum * 2), tick);
+      FCFS(finalQueue, pList, turnAroundTime, timeQuantum, tick, ageTicks, numQueues);
       break;
     case 4:
-      demoteQueue(pList, lowerQueue1, timeQuantum, tick);
-      demoteQueue(lowerQueue1, lowerQueue2, (timeQuantum * 2), tick);
-      demoteQueue(lowerQueue2, finalQueue, (timeQuantum * 4), tick);
-      FCFS(finalQueue, pList, timeQuantum, tick, ageTicks, numQueues);
+      demoteQueue(pList, lowerQueue1, turnAroundTime, timeQuantum, tick);
+      demoteQueue(lowerQueue1, lowerQueue2, turnAroundTime, (timeQuantum * 2), tick);
+      demoteQueue(lowerQueue2, finalQueue, turnAroundTime, (timeQuantum * 4), tick);
+      FCFS(finalQueue, pList, turnAroundTime, timeQuantum, tick, ageTicks, numQueues);
       break;
     case 5:
-      demoteQueue(pList, lowerQueue1, timeQuantum, tick);
-      demoteQueue(lowerQueue1, lowerQueue2, (timeQuantum * 2), tick);
-      demoteQueue(lowerQueue2, lowerQueue3, (timeQuantum * 4), tick);
-      demoteQueue(lowerQueue3, finalQueue, (timeQuantum * 8), tick);
-      FCFS(finalQueue, pList, timeQuantum, tick, ageTicks, numQueues);
+      demoteQueue(pList, lowerQueue1, turnAroundTime, timeQuantum, tick);
+      demoteQueue(lowerQueue1, lowerQueue2, turnAroundTime, (timeQuantum * 2), tick);
+      demoteQueue(lowerQueue2, lowerQueue3, turnAroundTime, (timeQuantum * 4), tick);
+      demoteQueue(lowerQueue3, finalQueue, turnAroundTime, (timeQuantum * 8), tick);
+      FCFS(finalQueue, pList, turnAroundTime, timeQuantum, tick, ageTicks, numQueues);
       break;
     }
   }
+  int avgTurnAroundTime = getAverageTurnaroundTime(turnAroundTime);
+  std::cout << "Average Turnaround Time: " << avgTurnAroundTime << " ticks\n";
   
   // freeVector(lowerQueue1);
   // freeVector(lowerQueue2);
@@ -642,7 +656,7 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
 }
 
 // Used for subtracting burst times and demoting processes to a lower queue
-void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue, int timeQuantum, int tick) {
+void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue, std::queue<int>& turnAroundTime, int timeQuantum, int tick) {
   int i;
   bool broke = false;
   // todo I/O
@@ -654,8 +668,8 @@ void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue,
       for (i = 0; i < timeQuantum; i++) {
         tick++;
         topQueue.front().subtractBurst();
-        printQueue(topQueue);
         if (topQueue.front().getBurst() <= 0) {
+          turnAroundTime.push((tick - topQueue.front().getArrival()));
           topQueue.pop();
           broke = true;
           break;
@@ -673,7 +687,7 @@ void demoteQueue(std::queue<Process>& topQueue, std::queue<Process>& lowerQueue,
   // freeVector(topQueue);
 }
 
-void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, int timeQuantum, int tick, int ageTicks, int numQueues) 
+void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, std::queue<int>& turnAroundTime, int timeQuantum, int tick, int ageTicks, int numQueues) 
 {
   int ageTickCounter = 0;
   while (fcfsQueue.size() > 0) // Go until we are through every process
@@ -686,6 +700,7 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, int 
         ageTickCounter++;
         fcfsQueue.front().subtractBurst();
       }
+      turnAroundTime.push((tick - fcfsQueue.front().getArrival()));
       fcfsQueue.pop();
       if (ageTickCounter >= ageTicks) // If processes have aged enough, leave FCFS
       {
@@ -702,8 +717,6 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& processList, int 
     processList.push(fcfsQueue.front());
     fcfsQueue.pop();
   }
-  std::cout<<"pList size = "<<processList.size()<<std::endl<<"fcfsQueue size = "<<fcfsQueue.size()<<std::endl;
-  std::cout << "\n finishing up.";
   // freeVector(fcfsQueue);
 }
 
@@ -942,6 +955,7 @@ void printVector(std::vector<Process>& v)
   }
   std::cout<<std::endl;
 }
+// Destroys the queue to print it so USE SPARRINGLY
 void printQueue(std::queue<Process>& v)
 {
     int i;
@@ -987,4 +1001,26 @@ void freeQueue(std::queue<Process>& q)
 {
   std::queue<Process> empty;
   q.swap(empty);
+}
+
+int getAverageWaitingTime(std::vector<Process>& pList) {
+    int waitingTime = 0;
+
+    for (int i = 0; i < pList.size(); i++) {
+        waitingTime = waitingTime + pList[i].getBurst();
+    }
+    waitingTime = waitingTime / pList.size();
+    return waitingTime;
+}
+
+int getAverageTurnaroundTime(std::queue<int>& pList) {
+    int size = pList.size();
+    int turnAroundTime = 0;
+
+    for (int i = 0; i < pList.size(); i++) {
+        turnAroundTime = turnAroundTime + pList.front();
+        pList.pop();
+    }
+    turnAroundTime = turnAroundTime / size;
+    return turnAroundTime;
 }
