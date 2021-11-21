@@ -20,8 +20,8 @@ class Process
       pid = 0, burst = 0, arrival = 0, priority = 0, deadline = 0, io = 0, initialBurst = 0, tickEntered = 0;
     }
     int pid, burst, arrival, priority, deadline, io, initialBurst, tickEntered;
+    int age = 0;
   
-  public:
     void setPID(int pid)
     {
       this->pid = pid;
@@ -107,6 +107,7 @@ void createProcesses(std::vector<Process>& pList);
 void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
 void printVector(std::vector<Process>& pList);
+void printQueue(std::queue<Process>& v);
 void freeVector(std::vector<Process>& v);
 void freeQueue(std::queue<Process>& q);
 std::queue<Process> sortByPriority(std::vector<Process>& pList);
@@ -594,6 +595,14 @@ void createProcesses(std::vector<Process>& pList)
     }
   } 
 }
+// Key for ordering least to greatest priority
+struct less_than_key
+{
+    inline bool operator() (const Process struct1, const Process struct2)
+    {
+        return (struct1.priority < struct2.priority);
+    }
+};
 
 std::queue<Process> sortByPriority(std::vector<Process>& pList) {
     std::vector<Process> sameArrival;
@@ -612,6 +621,10 @@ std::queue<Process> sortByPriority(std::vector<Process>& pList) {
             }
             freeVector(sameArrival);
             arr++;
+        }
+        if (prioSorted.size() == pList.size())
+        {
+          return prioSorted;
         }
     }
     freeVector(pList);
@@ -636,8 +649,6 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
   // higherQueue = queue for the 1st queue. pList represents processes that came from I/O.
   while (higherQueue.size() > 0 || pList.size() > 0) // Keep going till higherQueue is filled or pList.
   {
-    std::cout<<"in while\n";
-    std::cout<<"pList size = "<<processList.size();
     switch (numQueues) {
     case 2:
       #ifdef DEBUG
