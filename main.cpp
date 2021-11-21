@@ -20,7 +20,6 @@ class Process
       pid = 0, burst = 0, arrival = 0, priority = 0, deadline = 0, io = 0, initialBurst = 0, tickEntered = 0;
     }
     int pid, burst, arrival, priority, deadline, io, initialBurst, tickEntered;
-    int age = 0;
   
     void setPID(int pid)
     {
@@ -622,10 +621,6 @@ std::queue<Process> sortByPriority(std::vector<Process>& pList) {
             freeVector(sameArrival);
             arr++;
         }
-        if (prioSorted.size() == pList.size())
-        {
-          return prioSorted;
-        }
     }
     freeVector(pList);
     return prioSorted;
@@ -641,6 +636,10 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
   std::queue<Process> lowerQueue2;
   std::queue<Process> lowerQueue3;
   std::queue<Process> ioQueue;
+<<<<<<< Updated upstream
+=======
+  std::queue<int> turnAroundTime;
+>>>>>>> Stashed changes
 
   // Create FCFS Queue
   std::queue<Process> finalQueue;
@@ -1389,3 +1388,54 @@ int getAverageTurnaroundTime(std::queue<int>& pList) {
     turnAroundTime = turnAroundTime / size;
     return turnAroundTime;
 }
+ 
+// /* The main function that implements QuickSort
+//  arr[] --> Array to be sorted,
+//   low  --> Starting index,
+//   high  --> Ending index */
+// void quickSort(Process arr[], int low, int high)
+// {
+//   if (low < high)
+//   {
+//     /* pi is partitioning index, arr[p] is now
+//         at right place */
+//     int pi = partition(arr, low, high);
+
+//     // Separately sort elements before
+//     // partition and after partition
+//     quickSort(arr, low, pi - 1);
+//     quickSort(arr, pi + 1, high);
+//   }
+// }
+
+// // A utility function to swap two elements
+// void arrSwap(Process* a, Process* b)
+// {
+//   Process t = *a;
+//   *a = *b;
+//   *b = t;
+// }
+ 
+// /* This function takes last element as pivot, places
+//    the pivot element at its correct position in sorted
+//     array, and places all smaller (smaller than pivot)
+//    to left of pivot and all greater elements to right
+//    of pivot */
+// int partition(Process arr[], int low, int high)
+// {
+//   int pivot = arr[high].getTickEntered(); // pivot
+//   int i = (low - 1); // Index of smaller element
+
+//   for (int j = low; j <= high- 1; j++)
+//   {
+//     // If current element is smaller than or
+//     // equal to pivot
+//     if (arr[j].getTickEntered() <= pivot)
+//     {
+//       i++; // increment index of smaller element
+//       arrSwap(&arr[i], &arr[j]);
+//     }
+//   }
+//   arrSwap(&arr[i + 1], &arr[high]);
+//   return (i + 1);
+// }
