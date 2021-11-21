@@ -636,10 +636,7 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
   std::queue<Process> lowerQueue2;
   std::queue<Process> lowerQueue3;
   std::queue<Process> ioQueue;
-<<<<<<< Updated upstream
-=======
   std::queue<int> turnAroundTime;
->>>>>>> Stashed changes
 
   // Create FCFS Queue
   std::queue<Process> finalQueue;
@@ -653,7 +650,7 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       #ifdef DEBUG
         std::cout<<"\nEntering queue 1\n";
       #endif
-      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime);
+      topQueue(higherQueue, finalQueue, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime);
       if (pList.size() == 0)
       {
         #ifdef DEBUG
@@ -863,6 +860,9 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
             ioQueue.front().subtractIO();
             if (ioQueue.front().getIO() == 0) // If IO is now 0, it finished, so push to pList.
             {
+              #ifdef DEBUG
+                std::cout<<"Process "<<ioQueue.front().getPID()<<" left ioQueue\n";
+              #endif
               ioQueue.front().setTickEntered(*tick);
               pList.push(ioQueue.front());
             }
@@ -876,13 +876,20 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
         // If process burst = 1, we put it into ioQueue if it has any.
         if (higherQueue.front().getBurst() == 1 && higherQueue.front().getIO() != 0)
         {
+          #ifdef DEBUG
+            std::cout<<"Process "<<higherQueue.front().getPID()<<" entered ioQueue\n";
+          #endif
           ioQueue.push(higherQueue.front());
           higherQueue.pop();
           broke = true;
           break;
         }
         // If process in queue is <= 0 it finished, so pop it off, get turnaround time, and leave for loop.
-        if (higherQueue.front().getBurst() <= 0) {
+        if (higherQueue.front().getBurst() <= 0) 
+        {
+          #ifdef DEBUG
+            std::cout<<"Process "<<higherQueue.front().getPID()<<" finished at tick "<<*tick<<std::endl;
+          #endif
           turnAroundTime.push((*tick - higherQueue.front().getArrival()));
           higherQueue.pop();
           broke = true;
@@ -1006,7 +1013,6 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue,
   // std::cout<<"higherQueue size = "<<higherQueue.size()<<std::endl
   //   <<"lowerQueue size = "<<fcfsQueue.size()<<std::endl<<"ioQueue size = "
   //   <<ioQueue.size()<<std::endl<<"pList size = "<<pList.size()<<std::endl;
-  
   while (*ageTickCounter != ageTicks && fcfsQueue.size() > 0) // Go until we are through every process
   {
     // std::cout<<"entered fcfs > 0\n";
