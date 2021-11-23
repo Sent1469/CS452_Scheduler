@@ -115,26 +115,22 @@ std::string userInput(int *nQs, int *timeQuantum, int *ageTks, bool *isIO, bool 
 std::vector<Process> readFile(std::string file, bool isIO, int ioTicks);
 void createSortedFile(std::vector<Process>& pList);
 void createProcesses(std::vector<Process>& pList);
-void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
-void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks);
+void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks, std::queue<int> turnAroundTime, std::queue<int> waitTime);
 void printVector(std::vector<Process>& pList);
 void printQueue(std::queue<Process>& v);
 void freeVector(std::vector<Process>& v);
 void freeQueue(std::queue<Process>& q);
 std::queue<Process> sortByPriority(std::vector<Process>& pList);
-void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks, bool isIO);
+void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks, bool isIO, std::queue<int> turnAroundTime, std::queue<int> waitTime);
 void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue, std::queue<Process>& ioQueue, 
-  std::queue<Process>& processList, int timeQuantum, int *tick, bool isIO, std::queue<int>& turnAroundTime);
+  std::queue<Process>& processList, int timeQuantum, int *tick, bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime);
 void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue, std::queue<Process>& ioQueue, 
-  std::queue<Process>& processList, int timeQuantum, int *tick, bool isIO, std::queue<int>& turnAroundTime);
+  std::queue<Process>& processList, int timeQuantum, int *tick, bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime);
 void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue, std::queue<Process>& ioQueue,
-  std::queue<Process>& processList, int *tick, int ageTicks, int *ageTickCounter, bool isIO, std::queue<int>& turnAroundTime);
-int getAverageWaitingTime(std::vector<Process>& pList);
+  std::queue<Process>& processList, int *tick, int ageTicks, int *ageTickCounter, bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime);
+int getAverageWaitingTime(std::queue<int>& pList);
 int getAverageTurnaroundTime(std::queue<int>& pList);
 bool decrementProcessIO(std::queue<Process>& ioQueue, std::queue<Process>& pList, int *tick);
-void quickSort(Process arr[], int low, int high);
-void arrSwap(Process* a, Process* b);
-int partition(Process arr[], int low, int high);
 
 int main()
 { 
@@ -146,6 +142,8 @@ int main()
   bool isIO = false;
   std::vector<Process> pList;
   std::string scheduler;
+  std::queue<int> turnAroundTime;
+  std::queue<int> waitTime;
 
   // test(&apple);
   // std::cout<<apple;
@@ -171,34 +169,28 @@ int main()
     // Reads the file and creates Process vector.
     pList = readFile(file, isIO, ioTicks);
   }
-  else
-    createProcesses(pList);
-
+  else {
+      createProcesses(pList);
+  }
+  // Start timer
+  auto start = std::chrono::high_resolution_clock::now();
   if (scheduler == "mfqs") // MFQS
   {
-      // Get Average Waiting Time
-      int waitTime = getAverageWaitingTime(pList);
-      // Start timer
-      auto start = std::chrono::high_resolution_clock::now();
       mergeSort(pList, 0, pList.size() - 1, true);
       createSortedFile(pList);
       std::queue<Process> sortedList = sortByPriority(pList);
-      multilevelFeedbackPriorityQueue(sortedList, numQueues, timeQuantum, ageTicks, isIO);
-      // End Timer
-      auto stop = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> elapsed_seconds = stop - start;
-      std::cout << "Total Runtime: " << elapsed_seconds.count() << "s\n";
-      std::cout << "Average Waiting Time: " << waitTime << " ticks\n";
+      multilevelFeedbackPriorityQueue(sortedList, numQueues, timeQuantum, ageTicks, isIO, turnAroundTime, waitTime);
   }
   else // RTS
   {
     mergeSort(pList, 0, pList.size() - 1, true); // Merge sort based on arrival time.
     std::cout<<"in rts: "<<scheduler<<std::endl;
-    if (scheduler == "s")
-      softRealTime(pList, isIO, ioTicks);
-    else
-      hardRealTime(pList, isIO, ioTicks);
+    hardRealTime(pList, isIO, ioTicks, turnAroundTime, waitTime);
   }
+  // End Timer
+  auto stop = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed_seconds = stop - start;
+  std::cout << "Total Runtime: " << elapsed_seconds.count() << "s\n";
 
   return 0;
 }
@@ -630,7 +622,7 @@ std::queue<Process> sortByPriority(std::vector<Process>& pList) {
     return prioSorted;
 }
 
-void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks, bool isIO) {
+void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks, bool isIO, std::queue<int> turnAroundTime, std::queue<int> waitTime) {
   int tick = 0;
   int ageTickCounter = 0;
   // Create RR Queues needed
@@ -640,7 +632,6 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
   std::queue<Process> lowerQueue2;
   std::queue<Process> lowerQueue3;
   std::queue<Process> ioQueue;
-  std::queue<int> turnAroundTime;
 
   // Create FCFS Queue
   std::queue<Process> finalQueue;
@@ -654,13 +645,13 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       #ifdef DEBUG
         std::cout<<"\nEntering queue 1\n";
       #endif
-      topQueue(higherQueue, finalQueue, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime);
+      topQueue(higherQueue, finalQueue, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime);
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 2\n";
         #endif
-        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime);
+        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime);
       }
       std::cout<<"in switch case: higherQueue size = "<<higherQueue.size()<<", finalQueue size = "
         <<finalQueue.size()<<", ioQueue size = "<<ioQueue.size()<<std::endl<<", pList size = "<<pList.size()<<std::endl;
@@ -678,20 +669,20 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       #ifdef DEBUG
         std::cout<<"\nEntering queue 1\n";
       #endif
-      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime);
+      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime);
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 2\n";
         #endif
-        demoteQueue(lowerQueue1, finalQueue, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime);
+        demoteQueue(lowerQueue1, finalQueue, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime, waitTime);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 3\n";
         #endif
-        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime);
+        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime);
       }
       std::cout<<"in switch case: higherQueue size = "<<higherQueue.size()<<", lowerQueue1 size = "<<lowerQueue1.size()
         <<", finalQueue size = "<<finalQueue.size()<<", ioQueue size = "<<ioQueue.size()<<std::endl
@@ -710,27 +701,27 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       #ifdef DEBUG
         std::cout<<"\nEntering queue 1\n";
       #endif
-      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime);
+      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime);
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 2\n";
         #endif
-        demoteQueue(lowerQueue1, lowerQueue2, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime);
+        demoteQueue(lowerQueue1, lowerQueue2, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime, waitTime);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 3\n";
         #endif
-        demoteQueue(lowerQueue2, finalQueue, ioQueue, pList, (timeQuantum * 4), &tick, isIO, turnAroundTime);
+        demoteQueue(lowerQueue2, finalQueue, ioQueue, pList, (timeQuantum * 4), &tick, isIO, turnAroundTime, waitTime);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 4\n";
         #endif
-        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime);
+        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime);
       }
       std::cout<<"in switch case: higherQueue size = "<<higherQueue.size()<<", lowerQueue1 size = "<<lowerQueue1.size()
         <<", lowerQueue2 size = "<<lowerQueue2.size()<<", finalQueue size = "<<finalQueue.size()<<", ioQueue size = "
@@ -749,34 +740,34 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       #ifdef DEBUG
         std::cout<<"\nEntering queue 1\n";
       #endif
-      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime);
+      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime);
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 2\n";
         #endif
-        demoteQueue(lowerQueue1, lowerQueue2, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime);
+        demoteQueue(lowerQueue1, lowerQueue2, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime, waitTime);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 3\n";
         #endif
-        demoteQueue(lowerQueue2, lowerQueue3, ioQueue, pList, (timeQuantum * 4), &tick, isIO, turnAroundTime);
+        demoteQueue(lowerQueue2, lowerQueue3, ioQueue, pList, (timeQuantum * 4), &tick, isIO, turnAroundTime, waitTime);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 4\n";
         #endif
-        demoteQueue(lowerQueue3, finalQueue, ioQueue, pList, (timeQuantum * 8), &tick, isIO, turnAroundTime);
+        demoteQueue(lowerQueue3, finalQueue, ioQueue, pList, (timeQuantum * 8), &tick, isIO, turnAroundTime, waitTime);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 5\n";
         #endif
-        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime);
+        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime);
       }
       std::cout<<"in switch case: higherQueue size = "<<higherQueue.size()<<", lowerQueue1 size = "<<lowerQueue1.size()
         <<", lowerQueue2 size = "<<lowerQueue2.size()<<", finalQueue size = "<<", lowerQueue3 size = "<<lowerQueue3.size()
@@ -793,14 +784,16 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       break;
     }
   }
+  int avgWaitTime = getAverageWaitingTime(waitTime);
   int avgTurnAroundTime = getAverageTurnaroundTime(turnAroundTime);
   std::cout << "Average Turnaround Time: " << avgTurnAroundTime << " ticks\n";
+  std::cout << "Average Wait Time: " << avgWaitTime << " ticks\n";
 }
 
 // This method is for the first queue in MFQS
 void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue, 
     std::queue<Process>& ioQueue, std::queue<Process>& pList, int timeQuantum, int *tick, 
-    bool isIO, std::queue<int>& turnAroundTime)
+    bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime)
 {
   int i, j, k, index, queueSize, pListSize; // queueSize is used for when popping off elements and need to for loop for correct #.
   int pTimeQuantumValue;
@@ -956,6 +949,7 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
             std::cout<<"Process "<<higherQueue.front().getPID()<<" finished at tick "<<*tick<<" with burst "<<higherQueue.front().getBurst()<<std::endl;
           #endif
           turnAroundTime.push((*tick - higherQueue.front().getArrival()));
+          waitTime.push((*tick - higherQueue.front().getArrival()) - higherQueue.front().getInitialBurst());
           higherQueue.pop();
           // pTimeQuantumValue = 0;
           broke = true;
@@ -988,7 +982,7 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
 // Used for subtracting burst times and demoting processes to a lower queue
 void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue, 
     std::queue<Process>& ioQueue, std::queue<Process>& pList, int timeQuantum, int *tick, 
-    bool isIO, std::queue<int>& turnAroundTime)
+    bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime)
 {
   int i; // queueSize is used for when popping off elements and need to for loop for correct #.
   bool broke = false;
@@ -1029,6 +1023,7 @@ void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQue
             std::cout<<"Process "<<higherQueue.front().getPID()<<" finished at tick "<<*tick<<" with burst "<<higherQueue.front().getBurst()<<std::endl;
           #endif
           turnAroundTime.push((*tick - higherQueue.front().getArrival()));
+          waitTime.push((*tick - higherQueue.front().getArrival()) - higherQueue.front().getInitialBurst());
           higherQueue.pop();
           broke = true;
           break;
@@ -1064,7 +1059,7 @@ void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQue
 
 void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue, 
   std::queue<Process>& ioQueue, std::queue<Process>& pList, int *tick, int ageTicks,
-  int *ageTickCounter, bool isIO, std::queue<int>& turnAroundTime)
+  int *ageTickCounter, bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime)
 {
   bool broke = false;
   std::cout<<"higherQueue size = "<<higherQueue.size()<<std::endl
@@ -1115,6 +1110,7 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue,
           std::cout<<"Process time quantum inside FCFS = "<<higherQueue.front().getTimeQuantum()<<std::endl;
         #endif
         turnAroundTime.push((*tick - fcfsQueue.front().getArrival()));
+        waitTime.push((*tick - fcfsQueue.front().getArrival()) - fcfsQueue.front().getInitialBurst());
         fcfsQueue.pop();
         // break;
       }
@@ -1184,15 +1180,11 @@ bool decrementProcessIO(std::queue<Process>& ioQueue, std::queue<Process>& pList
   return pLeftIO;
 }
 
-
-void softRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
-{
-
-}
+//soft
 
 // CHECK MEMORY LEAKS LATER
 /* Hard Real Time Scheduling */
-void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
+void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks, std::queue<int> turnAroundTime, std::queue<int> waitTime)
 {
   createSortedFile(pList); // TODO: Remove later
   int i;
@@ -1259,6 +1251,8 @@ void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks)
           #ifdef DEBUG
             std::cout<<"Process "<<queue[lowestDeadline].getPID()<<" finished at tick "<<tick<<std::endl;
           #endif
+          turnAroundTime.push((tick - queue[lowestDeadline].getArrival()));
+          waitTime.push((tick - queue[lowestDeadline].getArrival()) - queue[lowestDeadline].getInitialBurst());
           queue.erase(queue.begin() + lowestDeadline);
         }
 
@@ -1446,14 +1440,16 @@ void freeQueue(std::queue<Process>& q)
   q.swap(empty);
 }
 
-int getAverageWaitingTime(std::vector<Process>& pList) {
-    int waitingTime = 0;
+int getAverageWaitingTime(std::queue<int>& pList) {
+    int size = pList.size();
+    int waitTime = 0;
 
     for (int i = 0; i < pList.size(); i++) {
-        waitingTime = waitingTime + pList[i].getBurst();
+        waitTime = waitTime + pList.front();
+        pList.pop();
     }
-    waitingTime = waitingTime / pList.size();
-    return waitingTime;
+    waitTime = waitTime / size;
+    return waitTime;
 }
 
 int getAverageTurnaroundTime(std::queue<int>& pList) {
