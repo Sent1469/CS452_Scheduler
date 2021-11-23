@@ -115,19 +115,25 @@ std::string userInput(int *nQs, int *timeQuantum, int *ageTks, bool *isIO, bool 
 std::vector<Process> readFile(std::string file, bool isIO, int ioTicks);
 void createSortedFile(std::vector<Process>& pList);
 void createProcesses(std::vector<Process>& pList);
+void RealTimeScheduler(std::vector<Process>& pList, bool isIO, int ioTicks, std::queue<int> turnAroundTime, 
+  std::queue<int> waitTime,std::string scheduler);
 void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks, std::queue<int> turnAroundTime, std::queue<int> waitTime);
 void printVector(std::vector<Process>& pList);
 void printQueue(std::queue<Process>& v);
 void freeVector(std::vector<Process>& v);
 void freeQueue(std::queue<Process>& q);
 std::queue<Process> sortByPriority(std::vector<Process>& pList);
-void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks, bool isIO, std::queue<int> turnAroundTime, std::queue<int> waitTime);
+void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks, bool isIO, 
+  std::queue<int> turnAroundTime, std::queue<int> waitTime);
 void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue, std::queue<Process>& ioQueue, 
-  std::queue<Process>& processList, int timeQuantum, int *tick, bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime);
+  std::queue<Process>& processList, int timeQuantum, int *tick, bool isIO, std::queue<int>& turnAroundTime,
+  std::queue<int>& waitTime, int numProcesses, int pCompleted);
 void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue, std::queue<Process>& ioQueue, 
-  std::queue<Process>& processList, int timeQuantum, int *tick, bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime);
+  std::queue<Process>& processList, int timeQuantum, int *tick, bool isIO, std::queue<int>& turnAroundTime, 
+  std::queue<int>& waitTime, int numProcesses, int pCompleted);
 void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue, std::queue<Process>& ioQueue,
-  std::queue<Process>& processList, int *tick, int ageTicks, int *ageTickCounter, bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime);
+  std::queue<Process>& processList, int *tick, int ageTicks, int *ageTickCounter, bool isIO, std::queue<int>& turnAroundTime, 
+  std::queue<int>& waitTime, int numProcesses, int pCompleted);
 int getAverageWaitingTime(std::queue<int>& pList);
 int getAverageTurnaroundTime(std::queue<int>& pList);
 bool decrementProcessIO(std::queue<Process>& ioQueue, std::queue<Process>& pList, int *tick);
@@ -142,8 +148,7 @@ int main()
   bool isIO = false;
   std::vector<Process> pList;
   std::string scheduler;
-  std::queue<int> turnAroundTime;
-  std::queue<int> waitTime;
+  std::queue<int> turnAroundTime, waitTime;
 
   // test(&apple);
   // std::cout<<apple;
@@ -176,16 +181,16 @@ int main()
   auto start = std::chrono::high_resolution_clock::now();
   if (scheduler == "mfqs") // MFQS
   {
-      mergeSort(pList, 0, pList.size() - 1, true);
-      createSortedFile(pList);
-      std::queue<Process> sortedList = sortByPriority(pList);
-      multilevelFeedbackPriorityQueue(sortedList, numQueues, timeQuantum, ageTicks, isIO, turnAroundTime, waitTime);
+    mergeSort(pList, 0, pList.size() - 1, true);
+    createSortedFile(pList);
+    std::queue<Process> sortedList = sortByPriority(pList);
+    multilevelFeedbackPriorityQueue(sortedList, numQueues, timeQuantum, ageTicks, isIO, turnAroundTime, waitTime);
   }
   else // RTS
   {
     mergeSort(pList, 0, pList.size() - 1, true); // Merge sort based on arrival time.
     std::cout<<"in rts: "<<scheduler<<std::endl;
-    hardRealTime(pList, isIO, ioTicks, turnAroundTime, waitTime);
+    RealTimeScheduler(pList, isIO, ioTicks, turnAroundTime, waitTime, scheduler);
   }
   // End Timer
   auto stop = std::chrono::high_resolution_clock::now();
@@ -623,6 +628,8 @@ std::queue<Process> sortByPriority(std::vector<Process>& pList) {
 }
 
 void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, int timeQuantum, int ageTicks, bool isIO, std::queue<int> turnAroundTime, std::queue<int> waitTime) {
+  int numProcesses = pList.size();
+  int pCompleted = 0;
   int tick = 0;
   int ageTickCounter = 0;
   // Create RR Queues needed
@@ -645,16 +652,14 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       #ifdef DEBUG
         std::cout<<"\nEntering queue 1\n";
       #endif
-      topQueue(higherQueue, finalQueue, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime);
+      topQueue(higherQueue, finalQueue, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 2\n";
         #endif
-        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime);
+        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       }
-      std::cout<<"in switch case: higherQueue size = "<<higherQueue.size()<<", finalQueue size = "
-        <<finalQueue.size()<<", ioQueue size = "<<ioQueue.size()<<std::endl<<", pList size = "<<pList.size()<<std::endl;
       // Case where we have an extra processes in ioQueue and none in other queues.
       if (ioQueue.size() > 0 && higherQueue.size() == 0 && finalQueue.size() == 0 && pList.size() == 0)
       {
@@ -669,24 +674,21 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       #ifdef DEBUG
         std::cout<<"\nEntering queue 1\n";
       #endif
-      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime);
+      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 2\n";
         #endif
-        demoteQueue(lowerQueue1, finalQueue, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime, waitTime);
+        demoteQueue(lowerQueue1, finalQueue, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 3\n";
         #endif
-        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime);
+        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       }
-      // std::cout<<"in switch case: higherQueue size = "<<higherQueue.size()<<", lowerQueue1 size = "<<lowerQueue1.size()
-      //   <<", finalQueue size = "<<finalQueue.size()<<", ioQueue size = "<<ioQueue.size()<<std::endl
-      //   <<", pList size = "<<pList.size()<<std::endl;
       // Case where we have an extra processes in ioQueue and none in other queues.
       if (ioQueue.size() > 0 && higherQueue.size() == 0 && lowerQueue1.size() == 0 &&
         finalQueue.size() == 0 && pList.size() == 0)
@@ -702,31 +704,28 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       #ifdef DEBUG
         std::cout<<"\nEntering queue 1\n";
       #endif
-      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime);
+      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 2\n";
         #endif
-        demoteQueue(lowerQueue1, lowerQueue2, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime, waitTime);
+        demoteQueue(lowerQueue1, lowerQueue2, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 3\n";
         #endif
-        demoteQueue(lowerQueue2, finalQueue, ioQueue, pList, (timeQuantum * 4), &tick, isIO, turnAroundTime, waitTime);
+        demoteQueue(lowerQueue2, finalQueue, ioQueue, pList, (timeQuantum * 4), &tick, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 4\n";
         #endif
-        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime);
+        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       }
-      std::cout<<"in switch case: higherQueue size = "<<higherQueue.size()<<", lowerQueue1 size = "<<lowerQueue1.size()
-        <<", lowerQueue2 size = "<<lowerQueue2.size()<<", finalQueue size = "<<finalQueue.size()<<", ioQueue size = "
-        <<ioQueue.size()<<std::endl<<", pList size = "<<pList.size()<<std::endl;
       // Case where we have an extra processes in ioQueue and none in other queues.
       if (ioQueue.size() > 0 && higherQueue.size() == 0 && lowerQueue1.size() == 0 &&
         lowerQueue2.size() == 0 && finalQueue.size() == 0 && pList.size() == 0)
@@ -742,38 +741,35 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       #ifdef DEBUG
         std::cout<<"\nEntering queue 1\n";
       #endif
-      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime);
+      topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 2\n";
         #endif
-        demoteQueue(lowerQueue1, lowerQueue2, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime, waitTime);
+        demoteQueue(lowerQueue1, lowerQueue2, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 3\n";
         #endif
-        demoteQueue(lowerQueue2, lowerQueue3, ioQueue, pList, (timeQuantum * 4), &tick, isIO, turnAroundTime, waitTime);
+        demoteQueue(lowerQueue2, lowerQueue3, ioQueue, pList, (timeQuantum * 4), &tick, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 4\n";
         #endif
-        demoteQueue(lowerQueue3, finalQueue, ioQueue, pList, (timeQuantum * 8), &tick, isIO, turnAroundTime, waitTime);
+        demoteQueue(lowerQueue3, finalQueue, ioQueue, pList, (timeQuantum * 8), &tick, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       }
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 5\n";
         #endif
-        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime);
+        FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime, numProcesses, pCompleted);
       }
-      // std::cout<<"in switch case: higherQueue size = "<<higherQueue.size()<<", lowerQueue1 size = "<<lowerQueue1.size()
-      //   <<", lowerQueue2 size = "<<lowerQueue2.size()<<", finalQueue size = "<<", lowerQueue3 size = "<<lowerQueue3.size()
-      //   <<finalQueue.size()<<", ioQueue size = "<<ioQueue.size()<<std::endl<<", pList size = "<<pList.size()<<std::endl;
       // Case where we have an extra processes in ioQueue and none in other queues.
       if (ioQueue.size() > 0 && higherQueue.size() == 0 && lowerQueue1.size() == 0 &&
         lowerQueue2.size() == 0 && lowerQueue3.size() == 0 && finalQueue.size() == 0 && pList.size() == 0)
@@ -796,14 +792,11 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
 // This method is for the first queue in MFQS
 void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue, 
     std::queue<Process>& ioQueue, std::queue<Process>& pList, int timeQuantum, int *tick, 
-    bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime)
+    bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime, int numProcesses, int pCompleted)
 {
   int i, j, k, index, queueSize, pListSize; // queueSize is used for when popping off elements and need to for loop for correct #.
   int pTimeQuantumValue;
   bool broke = false; // Check for if we left the "CPU".
-  // std::cout<<"higherQueue size = "<<higherQueue.size()<<std::endl
-  //   <<"lowerQueue size = "<<lowerQueue.size()<<std::endl<<"ioQueue size = "
-  //   <<ioQueue.size()<<std::endl<<"pList size = "<<pList.size()<<std::endl;
   
   // Go until we are through every process or have processes in waiting queue to enter higherQueue
   while (higherQueue.size() > 0 || pList.size() > 0)
@@ -812,30 +805,17 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
     // If more than two processes in pList, need to sort them by tickEntered and potentially priority.
     if (pList.size() > 1)
     {
-      // std::cout<<"entering pList > 1 in topQueue\n";
       std::vector<Process> temp, priorityTemp;
       std::queue<Process> higherQueueTemp;
-      // std::cout<<"after Process arr\n";
       int highestPriority; // Highest priority means lower number (UNIX way of priority).
       pListSize = pList.size(); //DONT DELETE THIS
-      // std::cout<<"after queueSize\n";
 
       for (i = 0; i < pListSize; i++) // Putting elements in pList inside temp queue so it can be sorted by tickEntered.
       {
         temp.push_back(pList.front());
         pList.pop();
       }
-      // std::cout<<"before mergeSort\n";
-      // for (i = 0; i < pListSize; i++) // TODO: Remove later
-      // {
-      //   std::cout<<"PID = "<<temp[i].getPID()<<" tickEntered = "<<temp[i].getTickEntered()<<" priority = "<<temp[i].getPriority()<<std::endl;
-      // }
       mergeSort(temp, 0, pListSize - 1, false); // sorting by tickEntered.
-      // std::cout<<"\nafter mergeSort\n";
-      // for (i = 0; i < queueSize; i++) // TODO: Remove later
-      // {
-      //   std::cout<<"PID = "<<temp[i].getPID()<<" tickEntered = "<<temp[i].getTickEntered()<<" priority = "<<temp[i].getPriority()<<std::endl;
-      // }
       // Double loop structure to see every index in vector temp and find
       // which Processes entered I/O at the same tick.
       for (i = 0; i < pListSize; i++)
@@ -844,13 +824,10 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
         {
           if (temp[i].getTickEntered() == temp[j].getTickEntered()) // If entered at the same tick, add to priorityTemp
           {
-            // std::cout<<"in temp[i] == temp[j]\n";
             if (priorityTemp.size() == 0) // Only for first find.
             {
-              // std::cout<<"in first push\n";
               priorityTemp.push_back(temp[i]);
             }
-            // std::cout<<"in push temp[j]\n";
             priorityTemp.push_back(temp[j]);
           }
           else // Didn't find another Process with the same tick X values in front, so leave inner loop.
@@ -886,7 +863,6 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
       queueSize = temp.size();
       for (i = 0; i < queueSize; i++)
       {
-        // std::cout<<"PID = "<<temp[i].getPID()<<" tickEntered = "<<temp[i].getTickEntered()<<" priority = "<<temp[i].getPriority()<<std::endl;
         higherQueue.push(temp[i]);
       }
       freeVector(temp); // No longer need it, so free it.
@@ -900,12 +876,10 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
     }
     else if (pList.size() == 1) // No need to check tickEntered and priority
     {
-      // std::cout<<"entered pList == 1\n";
       std::queue<Process> higherQueueTemp;
       queueSize = higherQueue.size();
       for (i = 0; i < queueSize; i++)
       {
-        // std::cout<<"entered first for\n";
         higherQueueTemp.push(higherQueue.front());
         higherQueue.pop();
       }
@@ -913,7 +887,6 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
       pList.pop();
       for (i = 0; i < queueSize; i++)
       {
-        // std::cout<<"entered second for loop\n";
         higherQueue.push(higherQueueTemp.front());
         higherQueueTemp.pop();
       }
@@ -921,7 +894,6 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
     // Where we are running processes in "CPU".
     if (higherQueue.front().getArrival() <= *tick) // If arrival time is late or equal to clock tick.
     {
-      // std::cout<<"Process "<<higherQueue.front().getPID()<<" arrived in CPU with timeQuantum "<<higherQueue.front().getTimeQuantum()<<std::endl;
       broke = false;
       for (i = higherQueue.front().getTimeQuantum(); i < timeQuantum; i++) // Giving process "CPU" for time quantum.
       {
@@ -941,7 +913,6 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
             ioQueue.push(higherQueue.front());
             higherQueue.pop();
             broke = true;
-            // pTimeQuantumValue = 0;
             break;
           }
         }
@@ -949,7 +920,11 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
         if (higherQueue.front().getBurst() <= 0) 
         {
           #ifdef DEBUG
-            std::cout<<"Process "<<higherQueue.front().getPID()<<" finished at tick "<<*tick<<" with burst "<<higherQueue.front().getBurst()<<std::endl;
+            std::cout<<"Process "<<higherQueue.front().getPID()<<" finished at tick "<<*tick<<std::endl;
+          #elif numProcesses > 500
+            pCompleted++;
+            if (pCompleted % 100 == 0)
+              std::cout<<pCompleted<<"/"<<numProcesses<<" completed\n";
           #endif
           turnAroundTime.push((*tick - higherQueue.front().getArrival()));
           waitTime.push((*tick - higherQueue.front().getArrival()) - higherQueue.front().getInitialBurst());
@@ -976,28 +951,20 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
     }
   }
   std::cout<<"finished topQueue\n";
-  // std::cout<<"higherQueue size = "<<higherQueue.size()<<std::endl
-  //   <<"lowerQueue size = "<<lowerQueue.size()<<std::endl<<"ioQueue size = "
-  //   <<ioQueue.size()<<std::endl<<"pList size = "<<pList.size()<<std::endl;
-  // freeVector(topQueue);
 }
 
 // Used for subtracting burst times and demoting processes to a lower queue
 void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue, 
     std::queue<Process>& ioQueue, std::queue<Process>& pList, int timeQuantum, int *tick, 
-    bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime)
+    bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime, int numProcesses, int pCompleted)
 {
   int i; // queueSize is used for when popping off elements and need to for loop for correct #.
   bool broke = false;
-  // std::cout<<"higherQueue size = "<<higherQueue.size()<<std::endl
-  //   <<"lowerQueue size = "<<lowerQueue.size()<<std::endl<<"ioQueue size = "
-  //   <<ioQueue.size()<<std::endl<<"pList size = "<<pList.size()<<std::endl;
   
   while (higherQueue.size() > 0) // Go until we are through every process
   {
     if (higherQueue.front().getArrival() <= *tick) // If arrival time is late or equal to clock tick.
     {
-      // std::cout<<"Process "<<higherQueue.front().getPID()<<" arrived in CPU with timeQuantum "<<higherQueue.front().getTimeQuantum()<<std::endl;
       broke = false;
       for (i = higherQueue.front().getTimeQuantum(); i < timeQuantum; i++) // Giving process "CPU" for time quantum.
       {
@@ -1023,7 +990,11 @@ void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQue
         if (higherQueue.front().getBurst() <= 0)
         {
           #ifdef DEBUG
-            std::cout<<"Process "<<higherQueue.front().getPID()<<" finished at tick "<<*tick<<" with burst "<<higherQueue.front().getBurst()<<std::endl;
+            std::cout<<"Process "<<higherQueue.front().getPID()<<" finished at tick "<<*tick<<std::endl;
+          #elif numProcesses > 500
+            pCompleted++;
+            if (pCompleted % 100 == 0)
+              std::cout<<pCompleted<<"/"<<numProcesses<<" completed\n";
           #endif
           turnAroundTime.push((*tick - higherQueue.front().getArrival()));
           waitTime.push((*tick - higherQueue.front().getArrival()) - higherQueue.front().getInitialBurst());
@@ -1054,28 +1025,19 @@ void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQue
     }
   }
   std::cout<<"finished demote queue\n";
-  // std::cout<<"higherQueue size = "<<higherQueue.size()<<std::endl
-  //   <<"lowerQueue size = "<<lowerQueue.size()<<std::endl<<"ioQueue size = "
-  //   <<ioQueue.size()<<std::endl<<"pList size = "<<pList.size()<<std::endl;
-  // freeVector(topQueue);
 }
 
 void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue, 
   std::queue<Process>& ioQueue, std::queue<Process>& pList, int *tick, int ageTicks,
-  int *ageTickCounter, bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime)
+  int *ageTickCounter, bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime, int numProcesses, int pCompleted)
 {
   bool broke = false;
-  // std::cout<<"higherQueue size = "<<higherQueue.size()<<std::endl
-  //   <<"fcfsQueue size = "<<fcfsQueue.size()<<std::endl<<"ioQueue size = "
-  //   <<ioQueue.size()<<std::endl<<"pList size = "<<pList.size()<<std::endl;
   
   while (*ageTickCounter != ageTicks && fcfsQueue.size() > 0) // Go until we are through every process
   {
-    // std::cout<<"entered fcfs > 0\n";
     if (fcfsQueue.front().getArrival() <= *tick) // If arrival time is late or equal to clock tick.
     {
       broke = false;
-      // std::cout<<"entered fcfs getArrical\n";
       // Giving the process "CPU" time till it finishes or leaves for IO.
       while (fcfsQueue.front().getBurst() != 0)
       {
@@ -1083,7 +1045,6 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue,
         if (*ageTickCounter != ageTicks) // Only incrememnt till we reach ageTick value.
         {
           *ageTickCounter = *ageTickCounter + 1;
-          // std::cout<<"ageTickCounter = "<<*ageTickCounter<<std::endl;
         }
         fcfsQueue.front().subtractBurst();
         if (isIO)
@@ -1094,12 +1055,9 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue,
           {
             #ifdef DEBUG
               std::cout<<"Process "<<higherQueue.front().getPID()<<" entered ioQueue at tick "<<*tick<<std::endl;
-              std::cout<<"Process time quantum inside FCFS = "<<higherQueue.front().getTimeQuantum()<<std::endl;
             #endif
             fcfsQueue.front().setTickEntered(*tick);
-            std::cout<<"tickEntered = "<<fcfsQueue.front().getTickEntered()<<std::endl;
             ioQueue.push(fcfsQueue.front());
-            // turnAroundTime.push((tick - fcfsQueue.front().getArrival())); // POTENTIALLY WRONG
             fcfsQueue.pop();
             broke = true;
             break;
@@ -1110,7 +1068,10 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue,
       {
         #ifdef DEBUG
           std::cout<<"Process "<<fcfsQueue.front().getPID()<<" finished at tick "<<*tick<<std::endl;
-          std::cout<<"Process time quantum inside FCFS = "<<higherQueue.front().getTimeQuantum()<<std::endl;
+        #elif numProcesses > 500
+            pCompleted++;
+            if (pCompleted % 100 == 0)
+              std::cout<<pCompleted<<"/"<<numProcesses<<" completed\n";
         #endif
         turnAroundTime.push((*tick - fcfsQueue.front().getArrival()));
         waitTime.push((*tick - fcfsQueue.front().getArrival()) - fcfsQueue.front().getInitialBurst());
@@ -1135,24 +1096,13 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue,
       *tick = *tick + 1;
     }
   }
-  // // If we had processes leave ioQueue, go back to the topQueue and return to FCFS later.
-  // if (pList.size() > 0)
-  // {
-  //   std::cout<<"pList size > 0, so leaving fcfs queue to finish these processes\n";
-  //   return;
-  // }
   // We reached ageTick, so put each process into higherQueue to restart.
   while (fcfsQueue.size() > 0)
   {
-    // std::cout<<"Process "<<fcfsQueue.front().getPID()<<" leaving FCFS with timeQuantum "<<fcfsQueue.front().getTimeQuantum()<<std::endl;
     higherQueue.push(fcfsQueue.front());
     fcfsQueue.pop();
   }
   std::cout << "left fcfs queue.\n";
-  // std::cout<<"higherQueue size = "<<higherQueue.size()<<std::endl
-  //   <<"fcfsQueue size = "<<fcfsQueue.size()<<std::endl<<"ioQueue size = "
-  //   <<ioQueue.size()<<std::endl<<"pList size = "<<pList.size()<<std::endl;
-  // freeVector(fcfsQueue);
 }
 
 bool decrementProcessIO(std::queue<Process>& ioQueue, std::queue<Process>& pList, int *tick)
@@ -1163,7 +1113,6 @@ bool decrementProcessIO(std::queue<Process>& ioQueue, std::queue<Process>& pList
   for (i = 0; i < queueSize; i++) // Decrement the IO of each process in IO queue.
   {
     ioQueue.front().subtractIO();
-    // std::cout<<"Process "<<ioQueue.front().getPID()<<" io = "<<ioQueue.front().getIO()<<std::endl;
     if (ioQueue.front().getIO() == 0) // If IO is now 0, it finished, so push to pList.
     {
       #ifdef DEBUG
@@ -1172,7 +1121,7 @@ bool decrementProcessIO(std::queue<Process>& ioQueue, std::queue<Process>& pList
       ioQueue.front().setTickEntered(*tick);
       pList.push(ioQueue.front());
       if (!pLeftIO)
-        pLeftIO = true;
+        pLeftIO = true; // Boolean that keeps track of what step we are doing in MFQS.
     }
     else // If not finished, push back into queue.
     {
@@ -1183,103 +1132,134 @@ bool decrementProcessIO(std::queue<Process>& ioQueue, std::queue<Process>& pList
   return pLeftIO;
 }
 
-//soft
-
 // CHECK MEMORY LEAKS LATER
-/* Hard Real Time Scheduling */
-void hardRealTime(std::vector<Process>& pList, bool isIO, int ioTicks, std::queue<int> turnAroundTime, std::queue<int> waitTime)
+/* Hard/soft Real Time Scheduling */
+void RealTimeScheduler(std::vector<Process>& pList, bool isIO, int ioTicks, std::queue<int> turnAroundTime, 
+  std::queue<int> waitTime,std::string scheduler)
 {
-  createSortedFile(pList); // TODO: Remove later
-  int i;
+  int numProcesses = pList.size();
+  int pCompleted = 0;
+  int pDropped = 0;
+  int i, rtsQueueSize, counter;
   int lowestDeadline;
-  // bool leftLoop = false;
   int tick = 0;
-  std::vector<Process> queue;
+  std::vector<Process> rtsQueue;
   std::queue<Process> processList;
-  for (i = 0; i < pList.size(); i++) // Convert pList to queue.
+  for (i = 0; i < pList.size(); i++) // Convert pList to a queue.
   {
     processList.push(pList[i]);
   }
   freeVector(pList);
 
-  while (processList.size() > 0) // Go until we are through every process
+  while (processList.size() > 0 || rtsQueue.size() > 0) // Go until we are through every process
   {
-    if (queue.size() > 0 || processList.front().getArrival() <= tick) // If arrival time is late or equal to clock tick.
+    lowestDeadline = 0; // Set to 0 as initial value for finding smallest deadline.
+    if (processList.size() > 0 && processList.front().getArrival() <= tick) // If arrival time is late or equal to clock tick.
     {
-      queue.push_back(processList.front());
+      rtsQueue.push_back(processList.front());
       processList.pop();
-      #ifdef DEBUG
-        std::cout<<"queue[0] = "<<queue[0].getPID()<<std::endl;
-        std::cout<<"processList front = "<<processList.front().getPID()<<std::endl;
-      #endif
-      while (queue[queue.size() - 1].getArrival() == processList.front().getArrival())
+      // Keep adding processes if they have the same arrival time.
+      while (rtsQueue[rtsQueue.size() - 1].getArrival() == processList.front().getArrival())
       {
-        // std::cout<<"pList[0] = "<<pList[0].getPID()<<std::endl;
-        queue.push_back(processList.front());
+        rtsQueue.push_back(processList.front());
         processList.pop();
       }
-      lowestDeadline = 0; // Set to 0 as initial value for finding smallest deadline.
-      for (i = 1; i < queue.size(); i++) // Loop to find the smallest deadline.
+      // printVector(rtsQueue);
+      for (i = 1; i < rtsQueue.size(); i++) // Loop to find the smallest deadline.
       {
-        if (queue[lowestDeadline].getDeadline() > queue[i].getDeadline())
+        if (rtsQueue[lowestDeadline].getDeadline() > rtsQueue[i].getDeadline())
         {
           lowestDeadline = i;
         }
       }
-      // if (queue.size() > 1)
-      // {
-      //   mergeSort(queue, 0, queue.size() - 1);
-      //   printVector(queue);
-      // }
-      //std::cout<<"pid = "<<pList[0].getPID()<<std::endl; // TODO: Remove later
-      while (queue.size() > 0) // Execution time of process
+    }
+    // Execution time of process
+    if (rtsQueue.size() > 0)
+    {
+      while (rtsQueue.size() > 0)
       {
         tick++;
-        queue[lowestDeadline].subtractBurst();
-        #ifdef DEBUG
-          std::cout<<"tick = "<<tick<<std::endl;
-          std::cout<<"PID = "<<queue[lowestDeadline].getPID();
-          std::cout<<" burst = "<<queue[lowestDeadline].getBurst()<<std::endl<<std::endl;
-        #endif
-        if (queue[lowestDeadline].getBurst() != 0 && queue[lowestDeadline].getDeadline() < tick) // If process did not finish, exit.
+        rtsQueue[lowestDeadline].subtractBurst();
+        // If process did not finish
+        if (rtsQueue[lowestDeadline].getBurst() != 0 && rtsQueue[lowestDeadline].getDeadline() < tick + rtsQueue[lowestDeadline].getBurst())
         {
-          std::cout<<"Collision occured for process "<<queue[lowestDeadline].getPID()<<". Exiting\n";
-          freeVector(queue);
-          freeQueue(processList);
-          exit(-1);
+          if(scheduler == "h") { // if hard, exit
+            std::cout<<"Collision occured for process "<<rtsQueue[lowestDeadline].getPID()<<". Exiting\n";
+            freeVector(rtsQueue);
+            freeQueue(processList);
+            return;
+          }else {
+            #ifdef DEBUG
+              std::cout<<"Collision occured for process "<<rtsQueue[i].getPID()<<". removing process\n";
+            #elif numProcesses > 500
+              pDropped++;
+              if (pDropped % 100 == 0)
+                std::cout<<pDropped<<"/"<<numProcesses<<" dropped\n";
+            #endif
+            rtsQueue.erase(rtsQueue.begin() + lowestDeadline); // Remove process from the queue and continue.
+            continue;
+          }
         }
 
-        if (queue[lowestDeadline].getBurst() == 0) // If process in queue finished, pop it off
+        if (rtsQueue[lowestDeadline].getBurst() == 0) // If process in queue finished, pop it off.
         {
           #ifdef DEBUG
-            std::cout<<"Process "<<queue[lowestDeadline].getPID()<<" finished at tick "<<tick<<std::endl;
+            std::cout<<"Process "<<rtsQueue[lowestDeadline].getPID()<<" finished at tick "<<tick<<std::endl;
+          #elif numProcesses > 500
+            pCompleted++;
+            if (pCompleted % 100 == 0)
+              std::cout<<pCompleted<<"/"<<numProcesses<<" completed\n";
           #endif
-          turnAroundTime.push((tick - queue[lowestDeadline].getArrival()));
-          waitTime.push((tick - queue[lowestDeadline].getArrival()) - queue[lowestDeadline].getInitialBurst());
-          queue.erase(queue.begin() + lowestDeadline);
+          turnAroundTime.push((tick - rtsQueue[lowestDeadline].getArrival()));
+          waitTime.push((tick - rtsQueue[lowestDeadline].getArrival()) - rtsQueue[lowestDeadline].getInitialBurst());
+          rtsQueue.erase(rtsQueue.begin() + lowestDeadline); // Remove the process form queue since it finished running.
+          break;
         }
 
-        if (processList.front().getArrival() == tick) // If arrival of next process in queue = tick, leave inner loop.
+        // std::cout<<"before for loop\n";
+        rtsQueueSize = rtsQueue.size();
+        counter = 0;
+        for (i = 0; i < rtsQueueSize; i++) // Look through the entire queue to find processes that didn't finish.
+        {
+          // If process did not finish, exit or push it off.
+          if (rtsQueue[counter].getBurst() != 0 && rtsQueue[counter].getDeadline() < tick + rtsQueue[lowestDeadline].getBurst())
+          {
+            if (scheduler == "h")
+            {
+              std::cout<<"Collision occured for process "<<rtsQueue[counter].getPID()<<". Exiting\n";
+              freeVector(rtsQueue);
+              freeQueue(processList);
+              exit(-1);
+            }
+            else
+            {
+              #ifdef DEBUG
+                std::cout<<"Collision occured for process "<<rtsQueue[i].getPID()<<". removing process\n";
+              #elif numProcesses > 500
+                pDropped++;
+                if (pDropped % 100 == 0)
+                  std::cout<<pDropped<<"/"<<numProcesses<<" dropped\n";
+              #endif
+              rtsQueue.erase(rtsQueue.begin() + counter); // Drop process off queue since it didn't finish.
+              continue;
+            }
+          }
+          counter++;
+        }
+
+        if (processList.size() > 0 && processList.front().getArrival() == tick) // If arrival of next process in queue = tick, leave inner loop.
         {
           break;
         }
       }
-      for (i = 0; i < queue.size(); i++) // Look through the entire queue to find processes that didn't finish
-      {
-        if (queue[i].getBurst() != 0 && queue[i].getDeadline() < tick) // If process did not finish, exit.
-        {
-          std::cout<<"Collision occured for process "<<queue[i].getPID()<<". Exiting\n";
-          freeVector(queue);
-          freeQueue(processList);
-          exit(-1);
-        }
-      }
-      continue; // Return back to the top to not incriment tick uneccessarily.
     }
-
-    tick++;
+    else
+    {
+      tick++;
+    }
   }
-  // freeVector(queue);
+  std::cout<<"\n\nending RTS\n";
+  printVector(rtsQueue);
 }
 
 // The interval from [s to m] and [m+1 to e] in v are sorted
@@ -1466,54 +1446,3 @@ int getAverageTurnaroundTime(std::queue<int>& pList) {
     turnAroundTime = turnAroundTime / size;
     return turnAroundTime;
 }
- 
-// /* The main function that implements QuickSort
-//  arr[] --> Array to be sorted,
-//   low  --> Starting index,
-//   high  --> Ending index */
-// void quickSort(Process arr[], int low, int high)
-// {
-//   if (low < high)
-//   {
-//     /* pi is partitioning index, arr[p] is now
-//         at right place */
-//     int pi = partition(arr, low, high);
-
-//     // Separately sort elements before
-//     // partition and after partition
-//     quickSort(arr, low, pi - 1);
-//     quickSort(arr, pi + 1, high);
-//   }
-// }
-
-// // A utility function to swap two elements
-// void arrSwap(Process* a, Process* b)
-// {
-//   Process t = *a;
-//   *a = *b;
-//   *b = t;
-// }
- 
-// /* This function takes last element as pivot, places
-//    the pivot element at its correct position in sorted
-//     array, and places all smaller (smaller than pivot)
-//    to left of pivot and all greater elements to right
-//    of pivot */
-// int partition(Process arr[], int low, int high)
-// {
-//   int pivot = arr[high].getTickEntered(); // pivot
-//   int i = (low - 1); // Index of smaller element
-
-//   for (int j = low; j <= high- 1; j++)
-//   {
-//     // If current element is smaller than or
-//     // equal to pivot
-//     if (arr[j].getTickEntered() <= pivot)
-//     {
-//       i++; // increment index of smaller element
-//       arrSwap(&arr[i], &arr[j]);
-//     }
-//   }
-//   arrSwap(&arr[i + 1], &arr[high]);
-//   return (i + 1);
-// }
