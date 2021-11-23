@@ -132,9 +132,6 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue, std:
 int getAverageWaitingTime(std::vector<Process>& pList);
 int getAverageTurnaroundTime(std::queue<int>& pList);
 bool decrementProcessIO(std::queue<Process>& ioQueue, std::queue<Process>& pList, int *tick);
-void quickSort(Process arr[], int low, int high);
-void arrSwap(Process* a, Process* b);
-int partition(Process arr[], int low, int high);
 
 int main()
 { 
