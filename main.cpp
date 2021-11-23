@@ -11,7 +11,6 @@
 #include <queue>
 
 // #define DEBUG
-#define BIGFILE
 
 class Process 
 {
@@ -151,9 +150,6 @@ int main()
   std::string scheduler;
   std::queue<int> turnAroundTime, waitTime;
 
-  // test(&apple);
-  // std::cout<<apple;
-
   scheduler = userInput(&numQueues, &timeQuantum, &ageTicks, &isInteractive, &isIO, &ioTicks);
   if (!isInteractive) // If not interactive, must read from file.
   {
@@ -179,7 +175,7 @@ int main()
     createProcesses(pList);
   }
   // Start timer
-  // auto start = std::chrono::high_resolution_clock::now();
+  auto start = std::chrono::high_resolution_clock::now();
   if (scheduler == "mfqs") // MFQS
   {
     mergeSort(pList, 0, pList.size() - 1, true);
@@ -194,9 +190,9 @@ int main()
     RealTimeScheduler(pList, isIO, ioTicks, turnAroundTime, waitTime, scheduler);
   }
   // End Timer
-  // auto stop = std::chrono::high_resolution_clock::now();
-  // std::chrono::duration<double> elapsed_seconds = stop - start;
-  // std::cout << "Total Runtime: " << elapsed_seconds.count() << "s\n";
+  auto stop = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> elapsed_seconds = stop - start;
+  std::cout << "Total Runtime: " << elapsed_seconds.count() << "s\n";
 
   return 0;
 }
@@ -784,8 +780,8 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       break;
     }
   }
-  int avgWaitTime = getAverageWaitingTime(waitTime);
-  int avgTurnAroundTime = getAverageTurnaroundTime(turnAroundTime);
+  unsigned long long int avgWaitTime = getAverageWaitingTime(waitTime);
+  unsigned long long int avgTurnAroundTime = getAverageTurnaroundTime(turnAroundTime);
   std::cout << "Average Turnaround Time: " << avgTurnAroundTime << " ticks\n";
   std::cout << "Average Wait Time: " << avgWaitTime << " ticks\n";
 }
@@ -810,7 +806,6 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
       pListSize = pList.size(); //DONT DELETE THIS
 
       for (i = 0; i < pListSize; i++) // Putting elements in pList inside temp queue so it can be sorted by tickEntered.
-      // FIND OUT IF IT DIES LATER
       {
         temp.push_back(pList.front());
         pList.pop();
@@ -860,22 +855,9 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
       freeVector(temp); // No longer need it, so free it.
     }
     else if (pList.size() == 1) // No need to check tickEntered and priority
-    // DIE
     {
-      std::queue<Process> higherQueueTemp;
-      queueSize = higherQueue.size();
-      for (i = 0; i < queueSize; i++)
-      {
-        higherQueueTemp.push(higherQueue.front());
-        higherQueue.pop();
-      }
       higherQueue.push(pList.front());
       pList.pop();
-      for (i = 0; i < queueSize; i++)
-      {
-        higherQueue.push(higherQueueTemp.front());
-        higherQueueTemp.pop();
-      }
     }
     // Where we are running processes in "CPU".
     if (higherQueue.front().getArrival() <= *tick) // If arrival time is late or equal to clock tick.
@@ -888,14 +870,13 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
         // higherQueue.front().addTimeQuantum();
         if (isIO)
         {
-          broke = decrementProcessIO(ioQueue, pList, tick);
+          decrementProcessIO(ioQueue, pList, tick);
           // If process burst = 1, we put it into ioQueue if it has any.
           if (higherQueue.front().getBurst() == 1 && higherQueue.front().getIO() != 0)
           {
             #ifdef DEBUG
               std::cout<<"Process "<<higherQueue.front().getPID()<<" entered ioQueue at tick "<<*tick<<std::endl;
             #endif
-            higherQueue.front().setTimeQuantum(0);
             ioQueue.push(higherQueue.front());
             higherQueue.pop();
             broke = true;
@@ -919,14 +900,10 @@ void topQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQueue,
           broke = true;
           break;
         }
-
-        if (broke)
-          break;
       }
       // If we did not break from the loop, the process did not finish or enter IO, so push it to next queue.
       if (!broke) 
       {
-        higherQueue.front().setTimeQuantum(0);
         lowerQueue.push(higherQueue.front());
         higherQueue.pop();
       }
@@ -943,7 +920,7 @@ void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQue
     std::queue<Process>& ioQueue, std::queue<Process>& pList, int timeQuantum, int *tick, 
     bool isIO, std::queue<int>& turnAroundTime, std::queue<int>& waitTime, int numProcesses, int *pCompleted)
 {
-  int i; // queueSize is used for when popping off elements and need to for loop for correct #.
+  int i;
   bool broke = false;
   
   while (higherQueue.size() > 0) // Go until we are through every process
@@ -951,7 +928,7 @@ void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQue
     if (higherQueue.front().getArrival() <= *tick) // If arrival time is late or equal to clock tick.
     {
       broke = false;
-      for (i = higherQueue.front().getTimeQuantum(); i < timeQuantum; i++) // Giving process "CPU" for time quantum.
+      for (i = 0; i < timeQuantum; i++) // Giving process "CPU" for time quantum.
       {
         *tick = *tick + 1;
         higherQueue.front().subtractBurst();
@@ -964,7 +941,6 @@ void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQue
             #ifdef DEBUG
               std::cout<<"Process "<<higherQueue.front().getPID()<<" entered ioQueue at tick "<<*tick<<std::endl;
             #endif
-            higherQueue.front().setTimeQuantum(0);
             ioQueue.push(higherQueue.front());
             higherQueue.pop();
             broke = true;
@@ -987,14 +963,10 @@ void demoteQueue(std::queue<Process>& higherQueue, std::queue<Process>& lowerQue
           broke = true;
           break;
         }
-
-        if (broke)
-          break;
       }
       // If we did not break from the loop, the process did not finish or enter IO, so push it to next queue.
       if (!broke)
       {
-        higherQueue.front().setTimeQuantum(0);
         lowerQueue.push(higherQueue.front());
         higherQueue.pop();
       }
@@ -1059,7 +1031,6 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue,
         turnAroundTime.push((*tick - fcfsQueue.front().getArrival()));
         waitTime.push((*tick - fcfsQueue.front().getArrival()) - fcfsQueue.front().getInitialBurst());
         fcfsQueue.pop();
-        // break;
       }
       // If processes have aged enough, don't put another process in the "CPU" and leave while loop.
       if (*ageTickCounter >= ageTicks)
@@ -1246,8 +1217,8 @@ void RealTimeScheduler(std::vector<Process>& pList, bool isIO, int ioTicks, std:
       tick++;
     }
   }
-  int avgWaitTime = getAverageWaitingTime(waitTime);
-  int avgTurnAroundTime = getAverageTurnaroundTime(turnAroundTime);
+  unsigned long long int avgWaitTime = getAverageWaitingTime(waitTime);
+  unsigned long long int avgTurnAroundTime = getAverageTurnaroundTime(turnAroundTime);
   std::cout << "Average Turnaround Time: " << avgTurnAroundTime << " ticks\n";
   std::cout << "Average Wait Time: " << avgWaitTime << " ticks\n";
 }
