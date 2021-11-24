@@ -124,6 +124,7 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue, std:
 unsigned long long int getAverageWaitingTime(std::queue<int>& pList);
 unsigned long long int getAverageTurnaroundTime(std::queue<int>& pList);
 bool decrementProcessIO(std::queue<Process>& ioQueue, std::queue<Process>& pList, int *tick);
+bool check_number(std::string str);
 
 int main()
 { 
@@ -226,72 +227,30 @@ std::string userInput(int *numQueues, int *timeQuantum, int *ageTicks, bool *isI
   {
     std::cout<<"How many queues? ";
     std::getline(std::cin, nQs);
-    while (nQs.empty())
+    while (nQs.empty() || !check_number(nQs) || std::stoi(nQs) < 2 || std::stoi(nQs) > 5)
     {
       std::cout<<"Incorrect input.\nHow many queues? ";
       std::getline(std::cin, nQs);
     }
-    // Based on assignment need 2-5 queues.
-    while (std::stoi(nQs) < 2 || std::stoi(nQs) > 5) // Go until correct user input. 
-    {
-      if (std::stoi(nQs) < 2)
-      {
-        std::cout<<"To few queues, number of queues needs to be > 2\nHow many queues? ";
-      }
-      else if (std::stoi(nQs) > 5)
-      {
-        std::cout<<"To many queues, number of queues needs to be < 5\nHow many queues? ";
-      }
-      else
-      {
-        std::cout<<"Incorrect input.\nHow many queues? ";
-      }
-      std::getline(std::cin, nQs);
-      while (nQs.empty())
-      {
-        std::cout<<"Incorrect input.\nHow many queues? ";
-        std::getline(std::cin, nQs);
-      }
-    }
     *numQueues = std::stoi(nQs);
-    // Time quantum
+    // Time quantum.
     std::cout<<"What is the time quantum? ";
     std::getline(std::cin, timeQ);
-    while (timeQ.empty())
+    // How long the process runs in mfqs.
+    while (timeQ.empty() || !check_number(timeQ) || std::stoi(timeQ) < 1)
     {
-      std::cout<<"Incorrect input\nWhat is the time quantum? ";
+      std::cout<<"Incorrect input.\nWhat is the time quantum? ";
       std::getline(std::cin, timeQ);
-    }
-    while (std::stoi(timeQ) < 1)
-    {
-      std::cout<<"Value for time quantum must be greater than 0\nWhat is the time quantum? ";
-      std::getline(std::cin, timeQ);
-      while (timeQ.empty())
-      {
-        std::cout<<"Incorrect input\nWhat is the time quantum? ";
-        std::getline(std::cin, timeQ);
-      }
     }
     *timeQuantum = std::stoi(timeQ);
-    // Aging
+    // Aging.
     std::cout<<"How many clock ticks for aging? ";
     std::getline(std::cin, ageTks);
-    while (ageTks.empty())
+    // Number of clock ticks for the process to move up a queue.
+    while (ageTks.empty() || !check_number(ageTks) || std::stoi(ageTks) < 1)
     {
       std::cout<<"Incorrect input.\nHow many clock ticks for aging? ";
       std::getline(std::cin, ageTks);
-    }
-    // Number of clock ticks for the process to move up a queue.
-    while (std::stoi(ageTks) < 1) // Go until correct user input.
-    {
-      std::cout<<"Value for aging must be an integer greater than 0\n"
-      <<"How many clock ticks for aging? ";
-      std::getline(std::cin, ageTks);
-      while (ageTks.empty())
-      {
-        std::cout<<"Incorrect input.\nHow many clock ticks for aging? ";
-        std::getline(std::cin, ageTks);
-      }
     }
     *ageTicks = std::stoi(ageTks);
   }
@@ -1022,7 +981,6 @@ void FCFS(std::queue<Process>& fcfsQueue, std::queue<Process>& higherQueue,
       // If processes have aged enough, don't put another process in the "CPU" and leave while loop.
       if (*ageTickCounter >= ageTicks)
       {
-        std::cout<<"do we enter ageTicks\n";
         break;
       }
       // If we had processes leave ioQueue, go back to the topQueue and return to FCFS later.
@@ -1400,4 +1358,11 @@ unsigned long long int getAverageTurnaroundTime(std::queue<int>& pList) {
     }
     turnAroundTime = turnAroundTime / size;
     return turnAroundTime;
+}
+
+bool check_number(std::string str) {
+  for (int i = 0; i < str.length(); i++)
+  if (isdigit(str[i]) == false)
+    return false;
+    return true;
 }
