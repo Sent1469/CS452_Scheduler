@@ -17,9 +17,9 @@ class Process
   public:
     Process() // Default constructor to initialize Process arr[] in quicksort.
     {
-      pid = 0, burst = 0, arrival = 0, priority = 0, deadline = 0, io = 0, initialBurst = 0, tickEntered = 0, timeQuantum =0;
+      pid = 0, burst = 0, arrival = 0, priority = 0, deadline = 0, io = 0, initialBurst = 0, tickEntered = 0;
     }
-    int pid, burst, arrival, priority, deadline, io, initialBurst, tickEntered, timeQuantum;
+    int pid, burst, arrival, priority, deadline, io, initialBurst, tickEntered;
   
     void setPID(int pid)
     {
@@ -49,10 +49,6 @@ class Process
     void setTickEntered(int tick)
     {
       tickEntered = tick;
-    }
-    void setTimeQuantum(int timeQuantum)
-    {
-      this->timeQuantum = timeQuantum;
     }
 
     int getPID()
@@ -87,10 +83,6 @@ class Process
     {
       return tickEntered;
     }
-    int getTimeQuantum()
-    {
-      return timeQuantum;
-    }
 
     void subtractBurst()
     {
@@ -99,11 +91,6 @@ class Process
     void subtractIO()
     {
       io--;
-    }
-
-    void addTimeQuantum()
-    {
-      timeQuantum++;
     }
 };
 
@@ -699,14 +686,14 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
       #ifdef DEBUG
         std::cout<<"\nEntering queue 1\n";
       #endif
-      std::cout<<"entering queue 1\n";
+      // std::cout<<"entering queue 1\n";
       topQueue(higherQueue, lowerQueue1, ioQueue, pList, timeQuantum, &tick, isIO, turnAroundTime, waitTime, numProcesses, &pCompleted);
       if (pList.size() == 0)
       {
         #ifdef DEBUG
           std::cout<<"\nEntering queue 2\n";
         #endif
-        std::cout<<"entering queue 2\n";
+        // std::cout<<"entering queue 2\n";
         demoteQueue(lowerQueue1, lowerQueue2, ioQueue, pList, (timeQuantum * 2), &tick, isIO, turnAroundTime, waitTime, numProcesses, &pCompleted);
       }
       if (pList.size() == 0)
@@ -714,7 +701,7 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
         #ifdef DEBUG
           std::cout<<"\nEntering queue 3\n";
         #endif
-        std::cout<<"entering queue 3\n";
+        // std::cout<<"entering queue 3\n";
         demoteQueue(lowerQueue2, finalQueue, ioQueue, pList, (timeQuantum * 4), &tick, isIO, turnAroundTime, waitTime, numProcesses, &pCompleted);
       }
       if (pList.size() == 0)
@@ -722,7 +709,7 @@ void multilevelFeedbackPriorityQueue(std::queue<Process>& pList, int numQueues, 
         #ifdef DEBUG
           std::cout<<"\nEntering queue 4\n";
         #endif
-        std::cout<<"entering queue fcfs\n";
+        // std::cout<<"entering queue fcfs\n";
         FCFS(finalQueue, higherQueue, ioQueue, pList, &tick, ageTicks, &ageTickCounter, isIO, turnAroundTime, waitTime, numProcesses, &pCompleted);
       }
       // Case where we have an extra processes in ioQueue and none in other queues.
@@ -1148,7 +1135,7 @@ void RealTimeScheduler(std::vector<Process>& pList, bool isIO, int ioTicks, std:
               std::cout<<"Collision occured for process "<<rtsQueue[i].getPID()<<". removing process\n";
             #else
               pDropped++;
-              if (pDropped % 100 == 0)
+              if (pDropped % 1000 == 0)
                 std::cout<<pDropped<<"/"<<numProcesses<<" dropped\n";
             #endif
             rtsQueue.erase(rtsQueue.begin() + lowestDeadline); // Remove process from the queue and continue.
@@ -1162,7 +1149,7 @@ void RealTimeScheduler(std::vector<Process>& pList, bool isIO, int ioTicks, std:
             std::cout<<"Process "<<rtsQueue[lowestDeadline].getPID()<<" finished at tick "<<tick<<std::endl;
           #else
             pCompleted++;
-            if (pCompleted % 100 == 0)
+            if (pCompleted % 500 == 0)
               std::cout<<pCompleted<<"/"<<numProcesses<<" completed\n";
           #endif
           turnAroundTime.push((tick - rtsQueue[lowestDeadline].getArrival()));
@@ -1182,6 +1169,8 @@ void RealTimeScheduler(std::vector<Process>& pList, bool isIO, int ioTicks, std:
             if (scheduler == "h")
             {
               std::cout<<"Collision occured for process "<<rtsQueue[counter].getPID()<<". Exiting\n";
+              std::cout<<std::endl<<"Number of processes completed = "<<pCompleted<<"/"<<numProcesses<<std::endl;
+              std::cout<<"Number of processes dropped = "<<pDropped<<"/"<<numProcesses<<std::endl<<std::endl;
               int avgWaitTime = getAverageWaitingTime(waitTime);
               int avgTurnAroundTime = getAverageTurnaroundTime(turnAroundTime);
               std::cout << "Average Turnaround Time: " << avgTurnAroundTime << " ticks\n";
@@ -1196,7 +1185,7 @@ void RealTimeScheduler(std::vector<Process>& pList, bool isIO, int ioTicks, std:
                 std::cout<<"Collision occured for process "<<rtsQueue[i].getPID()<<". removing process\n";
               #else
                 pDropped++;
-                if (pDropped % 100 == 0)
+                if (pDropped % 1000 == 0)
                   std::cout<<pDropped<<"/"<<numProcesses<<" dropped\n";
               #endif
               rtsQueue.erase(rtsQueue.begin() + counter); // Drop process off queue since it didn't finish.
@@ -1217,6 +1206,11 @@ void RealTimeScheduler(std::vector<Process>& pList, bool isIO, int ioTicks, std:
       tick++;
     }
   }
+
+  std::cout<<std::endl;
+  std::cout<<"Number of processes completed = "<<pCompleted<<"/"<<numProcesses<<std::endl;
+  std::cout<<"Number of processes dropped = "<<pDropped<<"/"<<numProcesses<<std::endl;
+  std::cout<<std::endl;
   unsigned long long int avgWaitTime = getAverageWaitingTime(waitTime);
   unsigned long long int avgTurnAroundTime = getAverageTurnaroundTime(turnAroundTime);
   std::cout << "Average Turnaround Time: " << avgTurnAroundTime << " ticks\n";
@@ -1266,7 +1260,7 @@ void mergeSortedIntervalsByArrival(std::vector<Process>& pList, int s, int m, in
 // The interval from [s to m] and [m+1 to e] in v are sorted
 // The function will merge both of these intervals
 // Such the interval from [s to e] in v becomes sorted
-void mergeSortedIntervalsByTick(std::vector<Process>& pList, int s, int m, int e) 
+void mergeSortedIntervalsByTick(std::vector<Process>& pList, int s, int m, int e)
 {
   // Temp is used to temporary store the vector obtained by merging
   // Elements from [s to m] and [m+1 to e] in v
